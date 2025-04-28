@@ -1,0 +1,36 @@
+body {
+  font-family: Arial, sans-serif;
+}
+.table th,
+.table td {
+  vertical-align: middle;
+}
+.green {
+  background-color: #d4edda;
+}
+.yellow {
+  background-color: #fff3cd;
+}
+.red {
+  background-color: #f8d7da;
+}
+.short {
+  background-color: #e6f3ff;
+}
+.medium {
+  background-color: #e6e6ff;
+}
+.long {
+  background-color: #ffe6e6;
+}
+.alert {
+  font-weight: bold;
+}
+.form-select.cap,
+.form-select.time {
+  min-width: 100px; /* Ensure dropdowns are wide enough */
+  white-space: nowrap; /* Prevent text wrapping */
+}
+.table-responsive {
+  overflow-x: auto; /* Enable horizontal scrolling for wide tables */
+}
