@@ -385,7 +385,7 @@ function renderSummaryTable() {
       .reduce((a, b) => a + b, 0);
     const hours = devTasks.map((task) => task.hours).reduce((a, b) => a + b, 0);
     const capAvg = devTasks.length ? capPoints / devTasks.length : 0;
-    const targetCapAvg = devTasks.length ? (capAvg / 2.0).toFixed(2) : '0.00';
+    const targetCapAvg = '2.00'; // Fixed target of 2.00
     const targetHours = calculateTargetHours(dev).toFixed(2);
 
     // Alert logic: Compare hours to target hours
@@ -416,9 +416,7 @@ function renderSummaryTable() {
   });
 
   const teamCapAvg = teamRow.tasks ? teamRow.capPoints / teamRow.tasks : 0;
-  const teamTargetCapAvg = teamRow.tasks
-    ? (teamCapAvg / 2.0).toFixed(2)
-    : '0.00';
+  const teamTargetCapAvg = '2.00'; // Fixed target of 2.00
   const teamTargetHours = sprintConfig.developers
     .reduce((sum, dev) => sum + calculateTargetHours(dev), 0)
     .toFixed(2);
@@ -565,9 +563,7 @@ function renderDashboard() {
   teamCapAvg.textContent = teamTasks
     ? (teamCapPoints / teamTasks).toFixed(2)
     : '0.00';
-  teamTargetCapAvg.textContent = teamTasks
-    ? (teamCapPoints / teamTasks / 2.0).toFixed(2)
-    : '0.00';
+  teamTargetCapAvg.textContent = '2.00';
   teamHours.textContent = teamHoursTotal.toFixed(1);
   teamTargetHours.textContent = teamTargetHoursTotal;
   teamAlert.textContent =
