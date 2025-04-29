@@ -138,8 +138,8 @@ function renderSummaryTable() {
       <td>${dev}</td>
       <td>${devTasks.length}</td>
       <td>${capPoints}</td>
-      <td>${capAvg ? capAvg.toFixed(2) + '/2' : '-'}</td>
-      <td>${hours}/${availableHours}</td>
+      <td>${capAvg.toFixed(2)}</td>
+      <td>${hours}</td>
       <td class="alert ${alertClass}">${alert}</td>`;
     table.appendChild(row);
 
@@ -208,8 +208,8 @@ function renderSummaryTable() {
     <td><strong>Team</strong></td>
     <td>${teamRow.tasks}</td>
     <td>${teamRow.capPoints}</td>
-    <td>${teamCapAvg ? teamCapAvg.toFixed(2) + '/2' : '-'}</td>
-    <td>${teamRow.hours}/${teamAvailableHours}</td>
+    <td>${teamCapAvg.toFixed(2)}</td>
+    <td>${teamRow.hours}</td>
     <td class="alert ${teamAlertClass}">${teamAlert}</td>`;
   table.appendChild(teamRowEl);
 }
@@ -591,18 +591,6 @@ function renderDashboard() {
       .reduce((a, b) => a + b, 0);
   });
 
-  // Calculate maximum target hours for y-axis scaling
-  const targetHours = sprintConfig.developers.map((developer) => {
-    return (
-      (sprintConfig.days -
-        sprintConfig.holidays -
-        (sprintConfig.personalDaysOff[developer] || 0)) *
-        sprintConfig.hoursPerDay -
-      sprintConfig.overhead
-    );
-  });
-  const maxTargetHours = Math.max(...targetHours, 0);
-
   // Capability Chart
   if (typeof Chart !== 'undefined') {
     new Chart(document.getElementById('capChart'), {
@@ -654,15 +642,7 @@ function renderDashboard() {
     new Chart(document.getElementById('hoursChart'), {
       type: 'bar',
       data: {
-        labels: sprintConfig.developers.map((developer, index) => {
-          const availableHours =
-            (sprintConfig.days -
-              sprintConfig.holidays -
-              (sprintConfig.personalDaysOff[developer] || 0)) *
-              sprintConfig.hoursPerDay -
-            sprintConfig.overhead;
-          return `${developer}\n${availableHours}h`;
-        }),
+        labels: sprintConfig.developers,
         datasets: [
           {
             label: 'Hours Assigned',
@@ -684,19 +664,7 @@ function renderDashboard() {
           },
         ],
       },
-      options: {
-        scales: {
-          y: {
-            beginAtZero: true,
-            max: Math.ceil(maxTargetHours * 1.1), // 10% buffer above max target hours
-          },
-        },
-        plugins: {
-          legend: { display: true },
-          tooltip: { enabled: true },
-        },
-        maintainAspectRatio: false,
-      },
+      options: { scales: { y: { beginAtZero: true } } },
     });
   } else {
     console.warn('Chart.js is not loaded. Hours Chart will not render.');

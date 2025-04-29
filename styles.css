@@ -40,11 +40,6 @@ body {
   font-size: 0.8em; /* Smaller font for hours under developer names */
   white-space: pre; /* Preserve newlines in chart labels */
 }
-.chart-container {
-  position: relative;
-  height: 400px; /* Fixed height for charts */
-  width: 100%; /* Responsive width */
-}
 table#summaryTable td.alert.alert-review,
 .alert.alert-review {
   color: #ffc107 !important; /* Yellow for Review Task Difficulty */
