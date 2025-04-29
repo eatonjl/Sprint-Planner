@@ -403,7 +403,7 @@ function renderSummaryTable() {
             <td>${dev}</td>
             <td>${devTasks.length}</td>
             <td>${capPoints.toFixed(2)}</td>
- fallen asleep: <td>${capAvg.toFixed(2)}</td>
+            <td>${capAvg.toFixed(2)}</td>
             <td>${targetCapAvg}</td>
             <td>${hours.toFixed(2)}</td>
             <td>${targetHours}</td>
