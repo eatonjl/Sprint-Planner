@@ -27,36 +27,10 @@ body {
   font-weight: bold;
 }
 .form-select.cap,
-.form-select.time,
-.form-select.overall-cap,
-.form-select.overall-time {
+.form-select.time {
   min-width: 100px; /* Ensure dropdowns are wide enough */
   white-space: nowrap; /* Prevent text wrapping */
 }
 .table-responsive {
   overflow-x: auto; /* Enable horizontal scrolling for wide tables */
-}
-.chart-label {
-  font-size: 0.8em; /* Smaller font for hours under developer names */
-  white-space: pre; /* Preserve newlines in chart labels */
-}
-table#summaryTable td.alert.alert-review,
-.alert.alert-review {
-  color: #ffc107 !important; /* Yellow for Review Task Difficulty */
-}
-table#summaryTable td.alert.alert-adjust,
-.alert.alert-adjust {
-  color: #dc3545 !important; /* Red for Adjust Capability */
-}
-table#summaryTable td.alert.alert-challenge,
-.alert.alert-challenge {
-  color: #17a2b8 !important; /* Cyan for Consider More Challenge */
-}
-table#summaryTable td.alert.alert-hours,
-.alert.alert-hours {
-  color: #ff5733 !important; /* Orange for Reduce Hours */
-}
-table#summaryTable td.alert.alert-ok,
-.alert.alert-ok {
-  color: #28a745 !important; /* Green for OK */
 }
