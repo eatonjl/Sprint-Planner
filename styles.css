@@ -41,8 +41,12 @@ body {
   width: auto; /* Allow natural width */
   white-space: nowrap; /* Prevent text wrapping */
 }
+.form-select.cap option.select-option,
+.form-select.time option.select-option {
+  color: black !important; /* Black for "Select" option in voting page dropdowns */
+}
 .form-select.assign option[value=''] {
-  color: #dc3545 !important; /* Red for "Select" option */
+  color: #dc3545 !important; /* Red for "Select" option in assignments page */
 }
 .form-select.assign option:not([value='']) {
   color: black !important; /* Black for developer names */

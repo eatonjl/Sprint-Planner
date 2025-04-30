@@ -253,7 +253,9 @@ function renderVotingTable() {
                 <td><select class="form-select cap" data-task="${
                   task.id
                 }" data-dev="${dev}" data-type="cap">
-                    <option value="">Select</option>
+                    <option value="" class="select-option" ${
+                      capValue === '' ? 'selected' : ''
+                    }>Select</option>
                     <option value="Trivial" class="trivial" ${
                       capValue === 'Trivial' ? 'selected' : ''
                     }>Trivial</option>
@@ -267,7 +269,9 @@ function renderVotingTable() {
                 <td><select class="form-select time" data-task="${
                   task.id
                 }" data-dev="${dev}" data-type="time">
-                    <option value="">Select</option>
+                    <option value="" class="select-option" ${
+                      timeValue === '' ? 'selected' : ''
+                    }>Select</option>
                     <option value="Short" class="short" ${
                       timeValue === 'Short' ? 'selected' : ''
                     }>Short</option>
@@ -304,25 +308,25 @@ function updateSelectColor(select) {
   if (select.classList.contains('cap')) {
     select.style.color =
       value === ''
-        ? ''
+        ? 'black'
         : value === 'Trivial'
         ? '#d39e00'
         : value === 'Optimal'
         ? '#28a745'
         : value === 'Challenging'
         ? '#dc3545'
-        : '';
+        : 'black';
   } else if (select.classList.contains('time')) {
     select.style.color =
       value === ''
-        ? ''
+        ? 'black'
         : value === 'Short'
         ? '#28a745'
         : value === 'Medium'
         ? '#d39e00'
         : value === 'Long'
         ? '#dc3545'
-        : '';
+        : 'black';
   }
 }
 
