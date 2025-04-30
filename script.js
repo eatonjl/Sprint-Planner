@@ -1,5 +1,3 @@
-// script.js
-
 // Data storage
 let sprintConfig = JSON.parse(localStorage.getItem('sprintConfig')) || {
   sprintLength: 2,
@@ -14,6 +12,10 @@ let sprintConfig = JSON.parse(localStorage.getItem('sprintConfig')) || {
 let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
 let votes = JSON.parse(localStorage.getItem('votes')) || {};
 let assignments = JSON.parse(localStorage.getItem('assignments')) || {};
+
+// Chart instances to track for destruction
+let capChartInstance = null;
+let hoursChartInstance = null;
 
 // Save data to LocalStorage
 function saveData() {
@@ -178,15 +180,15 @@ function renderVotingTable() {
                   task.id
                 }" data-dev="${dev}" data-type="cap">
                     <option value="">Select</option>
-                    <option value="Green" ${
-                      capValue === 'Green' ? 'selected' : ''
-                    }>Green</option>
-                    <option value="Yellow" ${
-                      capValue === 'Yellow' ? 'selected' : ''
-                    }>Yellow</option>
-                    <option value="Red" ${
-                      capValue === 'Red' ? 'selected' : ''
-                    }>Red</option>
+                    <option value="Below Capability" ${
+                      capValue === 'Below Capability' ? 'selected' : ''
+                    }>Below Capability</option>
+                    <option value="At Capability" ${
+                      capValue === 'At Capability' ? 'selected' : ''
+                    }>At Capability</option>
+                    <option value="Above Capability" ${
+                      capValue === 'Above Capability' ? 'selected' : ''
+                    }>Above Capability</option>
                 </select></td>
                 <td><select class="form-select time" data-task="${
                   task.id
@@ -248,11 +250,11 @@ function renderTasksTable() {
     const capPoints = sprintConfig.developers
       .map((dev) => {
         const val = votes[`${task.id}-${dev}-cap`];
-        return val === 'Green'
+        return val === 'Below Capability'
           ? 1
-          : val === 'Yellow'
+          : val === 'At Capability'
           ? 2
-          : val === 'Red'
+          : val === 'Above Capability'
           ? 3
           : 0;
       })
@@ -279,11 +281,11 @@ function renderTasksTable() {
       sprintConfig.developers
         .map((dev) => {
           const cap =
-            votes[`${task.id}-${dev}-cap`] === 'Green'
+            votes[`${task.id}-${dev}-cap`] === 'Below Capability'
               ? 1
-              : votes[`${task.id}-${dev}-cap`] === 'Yellow'
+              : votes[`${task.id}-${dev}-cap`] === 'At Capability'
               ? 2
-              : votes[`${task.id}-${dev}-cap`] === 'Red'
+              : votes[`${task.id}-${dev}-cap`] === 'Above Capability'
               ? 3
               : 0;
           const time =
@@ -299,7 +301,11 @@ function renderTasksTable() {
         .filter((v) => v)
         .reduce((a, b) => a + b, 0) / (capPoints.length || 1);
     const capColor =
-      capAvg <= 1.49 ? 'Green' : capAvg <= 2.49 ? 'Yellow' : 'Red';
+      capAvg <= 1.49
+        ? 'Below Capability'
+        : capAvg <= 2.49
+        ? 'At Capability'
+        : 'Above Capability';
     const timeColor =
       timeAvg <= 1.49 ? 'Short' : timeAvg <= 2.49 ? 'Medium' : 'Long';
     const hours = timeColor === 'Short' ? 2 : timeColor === 'Medium' ? 4.5 : 9;
@@ -317,9 +323,11 @@ function renderTasksTable() {
             <td>${task.id}</td>
             <td>${task.description}</td>
             <td>${capAvg.toFixed(2)}</td>
-            <td class="${capColor.toLowerCase()}">${capColor}</td>
+            <td class="${capColor
+              .toLowerCase()
+              .replace(' ', '-')}" style="font-weight: bold;">${capColor}</td>
             <td>${timeAvg.toFixed(2)}</td>
-            <td class="${timeColor.toLowerCase()}">${timeColor}</td>
+            <td class="${timeColor.toLowerCase()}" style="font-weight: bold;">${timeColor}</td>
             <td>${composite.toFixed(2)}</td>
             <td>${hours}</td>`;
     table.appendChild(row);
@@ -338,11 +346,11 @@ function renderAssignmentsTable() {
     row.innerHTML = `
             <td>${task.id}</td>
             <td>${task.description}</td>
-            <td class="${task.capColor.toLowerCase()}">${task.capColor}</td>
-            <td class="${task.timeColor.toLowerCase()}">${task.timeColor}</td>
-            <td>${task.hours}</td>
-            <td><select class="form-select assign" data-task="${task.id}">
-                <option value="">Select</option>
+            <td>
+              <select class="form-select assign" data-task="${task.id}">
+                <option value="" ${
+                  !assignments[task.id] ? 'selected' : ''
+                }>Select</option>
                 ${sprintConfig.developers
                   .map(
                     (dev) =>
@@ -351,13 +359,38 @@ function renderAssignmentsTable() {
                       }>${dev}</option>`
                   )
                   .join('')}
-            </select></td>`;
+              </select>
+            </td>
+            <td class="${task.capColor
+              .toLowerCase()
+              .replace(' ', '-')}" style="font-weight: bold;">${
+      task.capColor
+    }</td>
+            <td class="${task.timeColor.toLowerCase()}" style="font-weight: bold;">${
+      task.timeColor
+    }</td>`;
     table.appendChild(row);
   });
 
   document.querySelectorAll('.assign').forEach((select) => {
+    // Set initial color based on value
+    if (!select.value) {
+      select.style.color = '#dc3545'; // Red for "Select"
+    } else {
+      select.style.color = ''; // Default color for developers
+    }
+
     select.addEventListener('change', (e) => {
-      assignments[e.target.dataset.task] = e.target.value;
+      const taskId = e.target.dataset.task;
+      const value = e.target.value;
+      // Update select color
+      e.target.style.color = value ? '' : '#dc3545';
+      // Update assignments
+      if (value) {
+        assignments[taskId] = value;
+      } else {
+        delete assignments[taskId];
+      }
       saveData();
       console.log('Assignment updated:', assignments);
       renderSummaryTable();
@@ -371,13 +404,18 @@ function renderSummaryTable() {
   const table = document.getElementById('summaryTable');
   if (!table) return;
   table.innerHTML = '';
-  const teamRow = { tasks: 0, capPoints: 0, hours: 0 };
+  const teamRow = { tasks: 0, capPoints: 0, hours: 0, targetHours: 0 };
+
+  // Collect data for charts
+  const capData = [];
+  const hoursData = [];
+  const targetHoursData = [];
 
   sprintConfig.developers.forEach((dev) => {
     const devTasks = Object.keys(assignments)
       .filter((id) => assignments[id] === dev)
       .map((id) => tasks.find((t) => t.id == id))
-      .filter((task) => task); // Filter out undefined tasks
+      .filter((task) => task);
     const capPoints = devTasks
       .map((task) => {
         return task.capAvg <= 1.49 ? 1 : task.capAvg <= 2.49 ? 2 : 3;
@@ -385,119 +423,104 @@ function renderSummaryTable() {
       .reduce((a, b) => a + b, 0);
     const hours = devTasks.map((task) => task.hours).reduce((a, b) => a + b, 0);
     const capAvg = devTasks.length ? capPoints / devTasks.length : 0;
-    const targetCapAvg = '2.00'; // Fixed target of 2.00
-    const targetHours = calculateTargetHours(dev).toFixed(2);
+    const targetHours = calculateTargetHours(dev);
+    const hoursPercentage = targetHours > 0 ? (hours / targetHours) * 100 : 0;
+    const statusValue = capAvg * (hours / (targetHours > 0 ? targetHours : 1));
 
-    // Alert logic: Compare hours to target hours
-    let alert = '';
-    if (hours > targetHours * 1.1) {
-      alert = 'Overloaded';
-    } else if (hours < targetHours * 0.9) {
-      alert = 'Underloaded';
+    // Status logic
+    let status = '';
+    let statusColor = '';
+    if (hoursPercentage > 100) {
+      status = 'Above Capacity';
+      statusColor = 'above-capacity';
+    } else if (statusValue < 1.5) {
+      status = 'Below Capacity';
+      statusColor = 'below-capacity';
+    } else if (statusValue <= 2.49) {
+      status = 'At Capacity';
+      statusColor = 'at-capacity';
     } else {
-      alert = 'OK';
+      status = 'Above Capacity';
+      statusColor = 'above-capacity';
     }
 
     const row = document.createElement('tr');
     row.innerHTML = `
             <td>${dev}</td>
             <td>${devTasks.length}</td>
-            <td>${capPoints.toFixed(2)}</td>
             <td>${capAvg.toFixed(2)}</td>
-            <td>${targetCapAvg}</td>
-            <td>${hours.toFixed(2)}</td>
-            <td>${targetHours}</td>
-            <td class="${alert.toLowerCase()}">${alert}</td>`;
+            <td>${Math.floor(hours)}/${Math.floor(targetHours)}</td>
+            <td class="${statusColor}" style="font-weight: bold;">${status}</td>`;
     table.appendChild(row);
 
+    // Accumulate team totals
     teamRow.tasks += devTasks.length;
     teamRow.capPoints += capPoints;
     teamRow.hours += hours;
+    teamRow.targetHours += targetHours;
+
+    // Collect chart data
+    capData.push(capAvg);
+    hoursData.push(hours);
+    targetHoursData.push(targetHours);
   });
 
+  // Team row
   const teamCapAvg = teamRow.tasks ? teamRow.capPoints / teamRow.tasks : 0;
-  const teamTargetCapAvg = '2.00'; // Fixed target of 2.00
-  const teamTargetHours = sprintConfig.developers
-    .reduce((sum, dev) => sum + calculateTargetHours(dev), 0)
-    .toFixed(2);
-  const teamAlert =
-    teamRow.hours > teamTargetHours * 1.1
-      ? 'Overloaded'
-      : teamRow.hours < teamTargetHours * 0.9
-      ? 'Underloaded'
-      : 'OK';
+  const teamHoursPercentage =
+    teamRow.targetHours > 0 ? (teamRow.hours / teamRow.targetHours) * 100 : 0;
+  const teamStatusValue =
+    teamCapAvg *
+    (teamRow.hours / (teamRow.targetHours > 0 ? teamRow.targetHours : 1));
+  let teamStatus = '';
+  let teamStatusColor = '';
+  if (teamHoursPercentage > 100) {
+    teamStatus = 'Above Capacity';
+    teamStatusColor = 'above-capacity';
+  } else if (teamStatusValue < 1.5) {
+    teamStatus = 'Below Capacity';
+    teamStatusColor = 'below-capacity';
+  } else if (teamStatusValue <= 2.49) {
+    teamStatus = 'At Capacity';
+    teamStatusColor = 'at-capacity';
+  } else {
+    teamStatus = 'Above Capacity';
+    teamStatusColor = 'above-capacity';
+  }
 
   const teamRowEl = document.createElement('tr');
   teamRowEl.innerHTML = `
         <td><strong>Team</strong></td>
         <td>${teamRow.tasks}</td>
-        <td>${teamRow.capPoints.toFixed(2)}</td>
         <td>${teamCapAvg.toFixed(2)}</td>
-        <td>${teamTargetCapAvg}</td>
-        <td>${teamRow.hours.toFixed(2)}</td>
-        <td>${teamTargetHours}</td>
-        <td class="${teamAlert.toLowerCase()}">${teamAlert}</td>`;
+        <td>${Math.floor(teamRow.hours)}/${Math.floor(teamRow.targetHours)}</td>
+        <td class="${teamStatusColor}" style="font-weight: bold;">${teamStatus}</td>`;
   table.appendChild(teamRowEl);
+
+  // Render charts
+  renderCharts(capData, hoursData, targetHoursData);
 }
 
-function saveAssignments() {
-  saveData();
-  alert('Assignments saved!');
-  renderAssignmentsTable();
-}
-
-// Dashboard
-function renderDashboard() {
-  console.log('Rendering dashboard with assignments:', assignments);
-  const teamCapAvg = document.getElementById('teamCapAvg');
-  const teamTargetCapAvg = document.getElementById('teamTargetCapAvg');
-  const teamHours = document.getElementById('teamHours');
-  const teamTargetHours = document.getElementById('teamTargetHours');
-  const teamAlert = document.getElementById('teamAlert');
-  if (
-    !teamCapAvg ||
-    !teamHours ||
-    !teamAlert ||
-    !teamTargetCapAvg ||
-    !teamTargetHours
-  ) {
-    console.error('Dashboard elements not found.');
-    return;
-  }
-
+function renderCharts(capData, hoursData, targetHoursData) {
   if (!window.Chart) {
     console.error('Chart.js not loaded.');
     alert('Charts failed to load. Please check your internet connection.');
     return;
   }
 
-  const capData = sprintConfig.developers.map((dev) => {
-    const devTasks = Object.keys(assignments)
-      .filter((id) => assignments[id] === dev)
-      .map((id) => tasks.find((t) => t.id == id))
-      .filter((task) => task);
-    const capPoints = devTasks
-      .map((task) => {
-        return task.capAvg <= 1.49 ? 1 : task.capAvg <= 2.49 ? 2 : 3;
-      })
-      .reduce((a, b) => a + b, 0);
-    return devTasks.length ? capPoints / devTasks.length : 0;
-  });
-
-  const hoursData = sprintConfig.developers.map((dev) => {
-    const devTasks = Object.keys(assignments)
-      .filter((id) => assignments[id] === dev)
-      .map((id) => tasks.find((t) => t.id == id))
-      .filter((task) => task);
-    return devTasks.map((task) => task.hours).reduce((a, b) => a + b, 0);
-  });
-
-  const targetHoursData = sprintConfig.developers.map((dev) =>
-    calculateTargetHours(dev)
-  );
-
   try {
-    new Chart(document.getElementById('capChart'), {
+    // Destroy existing chart instances
+    if (capChartInstance) {
+      capChartInstance.destroy();
+      capChartInstance = null;
+    }
+    if (hoursChartInstance) {
+      hoursChartInstance.destroy();
+      hoursChartInstance = null;
+    }
+
+    // Capability Chart
+    capChartInstance = new Chart(document.getElementById('capChart'), {
       type: 'bar',
       data: {
         labels: sprintConfig.developers,
@@ -506,7 +529,7 @@ function renderDashboard() {
             label: 'Capability Average',
             data: capData,
             backgroundColor: capData.map((v) =>
-              v < 1.5 || v > 2.5 ? '#dc3545' : '#28a745'
+              v < 1.5 ? '#ffc107' : v <= 2.49 ? '#28a745' : '#dc3545'
             ),
           },
         ],
@@ -514,23 +537,25 @@ function renderDashboard() {
       options: { scales: { y: { beginAtZero: true, max: 3 } } },
     });
 
-    new Chart(document.getElementById('hoursChart'), {
+    // Hours Chart
+    hoursChartInstance = new Chart(document.getElementById('hoursChart'), {
       type: 'bar',
       data: {
         labels: sprintConfig.developers.map(
-          (dev) => `${dev} (${calculateTargetHours(dev).toFixed(1)}h)`
+          (dev, i) => `${dev} (${Math.floor(targetHoursData[i])}h)`
         ),
         datasets: [
           {
             label: 'Hours',
             data: hoursData,
-            backgroundColor: hoursData.map((hours, index) => {
-              const target = targetHoursData[index];
-              return hours > target * 1.1
-                ? '#dc3545'
-                : hours < target * 0.9
+            backgroundColor: hoursData.map((hours, i) => {
+              const target = targetHoursData[i];
+              const percentage = target > 0 ? (hours / target) * 100 : 0;
+              return percentage < 80
                 ? '#ffc107'
-                : '#28a745';
+                : percentage <= 100
+                ? '#28a745'
+                : '#dc3545';
             }),
           },
         ],
@@ -541,37 +566,12 @@ function renderDashboard() {
     console.error('Error rendering charts:', error);
     alert('Failed to render charts. Check console for details.');
   }
+}
 
-  const teamTasks = Object.keys(assignments).length;
-  const teamCapPoints = Object.keys(assignments)
-    .map((id) => {
-      const task = tasks.find((t) => t.id == id);
-      if (!task) return 0;
-      return task.capAvg <= 1.49 ? 1 : task.capAvg <= 2.49 ? 2 : 3;
-    })
-    .reduce((a, b) => a + b, 0);
-  const teamHoursTotal = Object.keys(assignments)
-    .map((id) => {
-      const task = tasks.find((t) => t.id == id);
-      return task ? task.hours : 0;
-    })
-    .reduce((a, b) => a + b, 0);
-  const teamTargetHoursTotal = sprintConfig.developers
-    .reduce((sum, dev) => sum + calculateTargetHours(dev), 0)
-    .toFixed(2);
-
-  teamCapAvg.textContent = teamTasks
-    ? (teamCapPoints / teamTasks).toFixed(2)
-    : '0.00';
-  teamTargetCapAvg.textContent = '2.00';
-  teamHours.textContent = teamHoursTotal.toFixed(1);
-  teamTargetHours.textContent = teamTargetHoursTotal;
-  teamAlert.textContent =
-    teamHoursTotal > teamTargetHoursTotal * 1.1
-      ? 'Overloaded'
-      : teamHoursTotal < teamTargetHoursTotal * 0.9
-      ? 'Underloaded'
-      : 'OK';
+function saveAssignments() {
+  saveData();
+  alert('Assignments saved!');
+  renderAssignmentsTable();
 }
 
 // Function to set active navbar link
@@ -598,6 +598,5 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('votingTable')) renderVotingTable();
   if (document.getElementById('tasksTable')) renderTasksTable();
   if (document.getElementById('assignmentsTable')) renderAssignmentsTable();
-  if (document.getElementById('capChart')) renderDashboard();
   setActiveNav();
 });
