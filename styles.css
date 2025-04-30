@@ -6,49 +6,57 @@ body {
   vertical-align: middle;
 }
 .trivial {
-  background-color: #fff3cd; /* Yellow background */
-  color: #d39e00; /* Yellow text */
+  color: #d39e00 !important; /* Yellow text */
 }
 .optimal {
-  background-color: #d4edda; /* Green background */
-  color: #28a745; /* Green text */
+  color: #28a745 !important; /* Green text */
 }
 .challenging {
-  background-color: #f8d7da; /* Red background */
-  color: #dc3545; /* Red text */
+  color: #dc3545 !important; /* Red text */
 }
 .short {
-  background-color: #e6f3ff;
+  color: #28a745 !important; /* Green text */
 }
 .medium {
-  background-color: #e6e6ff;
+  color: #d39e00 !important; /* Yellow text */
 }
 .long {
-  background-color: #ffe6e6;
+  color: #dc3545 !important; /* Red text */
 }
 .below-capacity {
-  color: #d39e00; /* Yellow text */
+  color: #d39e00 !important; /* Yellow text */
 }
 .at-capacity {
-  color: #28a745; /* Green text */
+  color: #28a745 !important; /* Green text */
 }
 .above-capacity {
-  color: #dc3545; /* Red text */
+  color: #dc3545 !important; /* Red text */
 }
 .alert {
   font-weight: bold;
 }
 .form-select.cap,
 .form-select.time {
-  min-width: 100px; /* Ensure dropdowns are wide enough */
+  min-width: 120px; /* Wider dropdowns to fit longest option */
+  width: auto; /* Allow natural width */
   white-space: nowrap; /* Prevent text wrapping */
 }
+.form-select.cap option,
+.form-select.time option {
+  color: inherit !important; /* Ensure dropdown options use their class colors */
+}
+.form-select.assign {
+  color: black; /* Default color for select element */
+}
 .form-select.assign option[value=''] {
-  color: #dc3545; /* Red for "Select" option */
+  color: #dc3545 !important; /* Red for "Select" option */
 }
 .form-select.assign option:not([value='']) {
-  color: inherit; /* Default color for developer names */
+  color: black !important; /* Black for developer names */
 }
 .table-responsive {
   overflow-x: auto; /* Enable horizontal scrolling for wide tables */
+}
+.canvas-container {
+  padding-bottom: 20px; /* Add padding below charts */
 }

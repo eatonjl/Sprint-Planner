@@ -254,13 +254,13 @@ function renderVotingTable() {
                   task.id
                 }" data-dev="${dev}" data-type="cap">
                     <option value="">Select</option>
-                    <option value="Trivial" ${
+                    <option value="Trivial" class="trivial" ${
                       capValue === 'Trivial' ? 'selected' : ''
                     }>Trivial</option>
-                    <option value="Optimal" ${
+                    <option value="Optimal" class="optimal" ${
                       capValue === 'Optimal' ? 'selected' : ''
                     }>Optimal</option>
-                    <option value="Challenging" ${
+                    <option value="Challenging" class="challenging" ${
                       capValue === 'Challenging' ? 'selected' : ''
                     }>Challenging</option>
                 </select></td>
@@ -268,13 +268,13 @@ function renderVotingTable() {
                   task.id
                 }" data-dev="${dev}" data-type="time">
                     <option value="">Select</option>
-                    <option value="Short" ${
+                    <option value="Short" class="short" ${
                       timeValue === 'Short' ? 'selected' : ''
                     }>Short</option>
-                    <option value="Medium" ${
+                    <option value="Medium" class="medium" ${
                       timeValue === 'Medium' ? 'selected' : ''
                     }>Medium</option>
-                    <option value="Long" ${
+                    <option value="Long" class="long" ${
                       timeValue === 'Long' ? 'selected' : ''
                     }>Long</option>
                 </select></td>`;
@@ -376,18 +376,9 @@ function renderAssignmentsTable() {
   });
 
   document.querySelectorAll('.assign').forEach((select) => {
-    // Set initial color based on value
-    if (!select.value) {
-      select.style.color = '#dc3545'; // Red for "Select"
-    } else {
-      select.style.color = ''; // Default color for developers
-    }
-
     select.addEventListener('change', (e) => {
       const taskId = e.target.dataset.task;
       const value = e.target.value;
-      // Update select color
-      e.target.style.color = value ? '' : '#dc3545';
       // Update assignments
       if (value) {
         assignments[taskId] = value;
