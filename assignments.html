@@ -3,17 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Assignments - Sprint Planning</title>
+    <title>Assignments</title>
+    <link rel="stylesheet" href="styles.css" />
+    <!-- Include Bootstrap -->
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
+    <!-- Include Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
+    <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
       <div class="container-fluid">
-        <a class="navbar-brand" href="index.html">Sprint Planning</a>
+        <a class="navbar-brand" href="index.html">Sprint Planner</a>
         <button
           class="navbar-toggler"
           type="button"
@@ -26,52 +30,75 @@
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-          <div class="navbar-nav">
-            <a class="nav-link" href="index.html">Home</a>
-            <a class="nav-link" href="setup.html">Setup</a>
-            <a class="nav-link" href="voting.html">Voting</a>
-            <a class="nav-link" href="tasks.html">Tasks</a>
-            <a class="nav-link" href="assignments.html">Assignments</a>
-            <a class="nav-link" href="dashboard.html">Dashboard</a>
-          </div>
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link" href="index.html">Home</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="setup.html">Setup</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="voting.html">Voting</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="assignments.html">Assignments</a>
+            </li>
+          </ul>
         </div>
       </div>
     </nav>
+
     <div class="container mt-4">
-      <h2>Assign Tasks</h2>
-      <table class="table table-bordered">
-        <thead>
-          <tr>
-            <th>Task #</th>
-            <th>Description</th>
-            <th>Cap Color</th>
-            <th>Time Color</th>
-            <th>Hours</th>
-            <th>Assigned To</th>
-          </tr>
-        </thead>
-        <tbody id="assignmentsTable"></tbody>
-      </table>
-      <h3>Workload Summary</h3>
-      <table class="table table-bordered">
-        <thead>
-          <tr>
-            <th>Developer</th>
-            <th>Tasks</th>
-            <th>Cap Points</th>
-            <th>Cap Avg</th>
-            <th>Target Cap Avg</th>
-            <th>Hours</th>
-            <th>Target Hours</th>
-            <th>Alert</th>
-          </tr>
-        </thead>
-        <tbody id="summaryTable"></tbody>
-      </table>
-      <button class="btn btn-success" onclick="saveAssignments()">
-        Save Assignments
-      </button>
+      <h1>Assignments</h1>
+      <!-- Assignments Table -->
+      <div class="table-responsive">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Task ID</th>
+              <th>Title</th>
+              <th>Developer</th>
+              <th>Capability</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="assignmentsTable">
+            <!-- Populated by renderAssignmentsTable -->
+          </tbody>
+        </table>
+      </div>
+      <!-- Workload Summary Table -->
+      <h2>Workload Summary</h2>
+      <div class="table-responsive">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Developer</th>
+              <th>Task Count</th>
+              <th>Capability Average</th>
+              <th>Hours Total</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="summaryTable">
+            <!-- Populated by renderSummaryTable -->
+          </tbody>
+        </table>
+      </div>
+      <!-- Charts -->
+      <h2>Workload Charts</h2>
+      <div class="row">
+        <div class="col-md-6">
+          <h3>Capability Average</h3>
+          <canvas id="capChart"></canvas>
+        </div>
+        <div class="col-md-6">
+          <h3>Hours</h3>
+          <canvas id="hoursChart"></canvas>
+        </div>
+      </div>
     </div>
+    <!-- Include Bootstrap JS for navbar toggle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
   </body>

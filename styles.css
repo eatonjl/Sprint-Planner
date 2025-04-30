@@ -1,36 +1,46 @@
-body {
-  font-family: Arial, sans-serif;
+/* Developer dropdown "Select" option */
+select.assign option[value=""] {
+  color: #dc3545; /* Red for unassigned "Select" option */
 }
-.table th,
-.table td {
-  vertical-align: middle;
+
+/* Capability column (Assignments and Tasks tables) */
+.below-capability {
+  color: #28a745; /* Green text for Below Capability */
 }
-.green {
-  background-color: #d4edda;
+.at-capability {
+  color: #ffc107; /* Yellow text for At Capability */
 }
-.yellow {
-  background-color: #fff3cd;
+.above-capability {
+  color: #dc3545; /* Red text for Above Capability */
 }
-.red {
-  background-color: #f8d7da;
-}
+
+/* Time column (Assignments table) */
 .short {
-  background-color: #e6f3ff;
+  color: #28a745; /* Green text for Short */
 }
 .medium {
-  background-color: #e6e6ff;
+  color: #ffc107; /* Yellow text for Medium */
 }
 .long {
-  background-color: #ffe6e6;
+  color: #dc3545; /* Red text for Long */
 }
-.alert {
+
+/* Status column (Workload Summary table) */
+.below-capacity {
+  color: #ffc107; /* Yellow text for Below Capacity */
   font-weight: bold;
 }
-.form-select.cap,
-.form-select.time {
-  min-width: 100px; /* Ensure dropdowns are wide enough */
-  white-space: nowrap; /* Prevent text wrapping */
+.at-capacity {
+  color: #28a745; /* Green text for At Capacity */
+  font-weight: bold;
 }
-.table-responsive {
-  overflow-x: auto; /* Enable horizontal scrolling for wide tables */
+.above-capacity {
+  color: #dc3545; /* Red text for Above Capacity */
+  font-weight: bold;
+}
+
+/* Navbar active link (optional, for consistency) */
+.nav-link.active {
+  font-weight: bold;
+  color: #007bff !important;
 }
