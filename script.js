@@ -57,6 +57,80 @@ function calculateTargetHours(developer) {
   return Math.max(0, targetHours);
 }
 
+// Update task calculations (capAvg, timeAvg, etc.) and store in tasks
+function updateTaskCalculations() {
+  tasks.forEach((task) => {
+    const capPoints = sprintConfig.developers
+      .map((dev) => {
+        const val = votes[`${task.id}-${dev}-cap`];
+        return val === 'Trivial'
+          ? 1
+          : val === 'Optimal'
+          ? 2
+          : val === 'Challenging'
+          ? 3
+          : 0;
+      })
+      .filter((v) => v);
+    const timePoints = sprintConfig.developers
+      .map((dev) => {
+        const val = votes[`${task.id}-${dev}-time`];
+        return val === 'Short'
+          ? 1
+          : val === 'Medium'
+          ? 2
+          : val === 'Long'
+          ? 3
+          : 0;
+      })
+      .filter((v) => v);
+    const capAvg = capPoints.length
+      ? capPoints.reduce((a, b) => a + b, 0) / capPoints.length
+      : 0;
+    const timeAvg = timePoints.length
+      ? timePoints.reduce((a, b) => a + b, 0) / timePoints.length
+      : 0;
+    const composite =
+      sprintConfig.developers
+        .map((dev) => {
+          const cap =
+            votes[`${task.id}-${dev}-cap`] === 'Trivial'
+              ? 1
+              : votes[`${task.id}-${dev}-cap`] === 'Optimal'
+              ? 2
+              : votes[`${task.id}-${dev}-cap`] === 'Challenging'
+              ? 3
+              : 0;
+          const time =
+            votes[`${task.id}-${dev}-time`] === 'Short'
+              ? 1
+              : votes[`${task.id}-${dev}-time`] === 'Medium'
+              ? 2
+              : votes[`${task.id}-${dev}-time`] === 'Long'
+              ? 3
+              : 0;
+          return cap + time;
+        })
+        .filter((v) => v)
+        .reduce((a, b) => a + b, 0) / (capPoints.length || 1);
+    const capColor =
+      capAvg <= 1.49 ? 'Trivial' : capAvg <= 2.49 ? 'Optimal' : 'Challenging';
+    const timeColor =
+      timeAvg <= 1.49 ? 'Short' : timeAvg <= 2.49 ? 'Medium' : 'Long';
+    const hours = timeColor === 'Short' ? 2 : timeColor === 'Medium' ? 4.5 : 9;
+
+    // Update task properties
+    task.capAvg = capAvg;
+    task.timeAvg = timeAvg;
+    task.capColor = capColor;
+    task.timeColor = timeColor;
+    task.hours = hours;
+    task.composite = composite;
+  });
+
+  saveData(); // Save updated tasks
+}
+
 // Setup
 document.getElementById('setupForm')?.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -180,15 +254,15 @@ function renderVotingTable() {
                   task.id
                 }" data-dev="${dev}" data-type="cap">
                     <option value="">Select</option>
-                    <option value="Below Capability" ${
-                      capValue === 'Below Capability' ? 'selected' : ''
-                    }>Below Capability</option>
-                    <option value="At Capability" ${
-                      capValue === 'At Capability' ? 'selected' : ''
-                    }>At Capability</option>
-                    <option value="Above Capability" ${
-                      capValue === 'Above Capability' ? 'selected' : ''
-                    }>Above Capability</option>
+                    <option value="Trivial" ${
+                      capValue === 'Trivial' ? 'selected' : ''
+                    }>Trivial</option>
+                    <option value="Optimal" ${
+                      capValue === 'Optimal' ? 'selected' : ''
+                    }>Optimal</option>
+                    <option value="Challenging" ${
+                      capValue === 'Challenging' ? 'selected' : ''
+                    }>Challenging</option>
                 </select></td>
                 <td><select class="form-select time" data-task="${
                   task.id
@@ -215,6 +289,7 @@ function renderVotingTable() {
         `${e.target.dataset.task}-${e.target.dataset.dev}-${e.target.dataset.type}`
       ] = e.target.value;
       saveData();
+      updateTaskCalculations(); // Update task calculations on vote change
       console.log('Vote updated:', votes);
     });
   });
@@ -222,6 +297,7 @@ function renderVotingTable() {
 
 function saveVotes() {
   saveData();
+  updateTaskCalculations(); // Ensure task calculations are updated
   alert('Votes saved!');
   renderVotingTable();
 }
@@ -247,93 +323,22 @@ function renderTasksTable() {
   }
 
   tasks.forEach((task) => {
-    const capPoints = sprintConfig.developers
-      .map((dev) => {
-        const val = votes[`${task.id}-${dev}-cap`];
-        return val === 'Below Capability'
-          ? 1
-          : val === 'At Capability'
-          ? 2
-          : val === 'Above Capability'
-          ? 3
-          : 0;
-      })
-      .filter((v) => v);
-    const timePoints = sprintConfig.developers
-      .map((dev) => {
-        const val = votes[`${task.id}-${dev}-time`];
-        return val === 'Short'
-          ? 1
-          : val === 'Medium'
-          ? 2
-          : val === 'Long'
-          ? 3
-          : 0;
-      })
-      .filter((v) => v);
-    const capAvg = capPoints.length
-      ? capPoints.reduce((a, b) => a + b, 0) / capPoints.length
-      : 0;
-    const timeAvg = timePoints.length
-      ? timePoints.reduce((a, b) => a + b, 0) / timePoints.length
-      : 0;
-    const composite =
-      sprintConfig.developers
-        .map((dev) => {
-          const cap =
-            votes[`${task.id}-${dev}-cap`] === 'Below Capability'
-              ? 1
-              : votes[`${task.id}-${dev}-cap`] === 'At Capability'
-              ? 2
-              : votes[`${task.id}-${dev}-cap`] === 'Above Capability'
-              ? 3
-              : 0;
-          const time =
-            votes[`${task.id}-${dev}-time`] === 'Short'
-              ? 1
-              : votes[`${task.id}-${dev}-time`] === 'Medium'
-              ? 2
-              : votes[`${task.id}-${dev}-time`] === 'Long'
-              ? 3
-              : 0;
-          return cap + time;
-        })
-        .filter((v) => v)
-        .reduce((a, b) => a + b, 0) / (capPoints.length || 1);
-    const capColor =
-      capAvg <= 1.49
-        ? 'Below Capability'
-        : capAvg <= 2.49
-        ? 'At Capability'
-        : 'Above Capability';
-    const timeColor =
-      timeAvg <= 1.49 ? 'Short' : timeAvg <= 2.49 ? 'Medium' : 'Long';
-    const hours = timeColor === 'Short' ? 2 : timeColor === 'Medium' ? 4.5 : 9;
-
-    // Store calculated values in task for use in assignments
-    task.capAvg = capAvg;
-    task.timeAvg = timeAvg;
-    task.capColor = capColor;
-    task.timeColor = timeColor;
-    task.hours = hours;
-    task.composite = composite;
-
     const row = document.createElement('tr');
     row.innerHTML = `
             <td>${task.id}</td>
             <td>${task.description}</td>
-            <td>${capAvg.toFixed(2)}</td>
-            <td class="${capColor
-              .toLowerCase()
-              .replace(' ', '-')}" style="font-weight: bold;">${capColor}</td>
-            <td>${timeAvg.toFixed(2)}</td>
-            <td class="${timeColor.toLowerCase()}" style="font-weight: bold;">${timeColor}</td>
-            <td>${composite.toFixed(2)}</td>
-            <td>${hours}</td>`;
+            <td>${task.capAvg ? task.capAvg.toFixed(2) : '0.00'}</td>
+            <td class="${
+              task.capColor ? task.capColor.toLowerCase() : ''
+            }" style="font-weight: bold;">${task.capColor || ''}</td>
+            <td>${task.timeAvg ? task.timeAvg.toFixed(2) : '0.00'}</td>
+            <td class="${
+              task.timeColor ? task.timeColor.toLowerCase() : ''
+            }" style="font-weight: bold;">${task.timeColor || ''}</td>
+            <td>${task.composite ? task.composite.toFixed(2) : '0.00'}</td>
+            <td>${task.hours || 0}</td>`;
     table.appendChild(row);
   });
-
-  saveData(); // Save updated tasks with calculated values
 }
 
 // Assignments
@@ -361,14 +366,12 @@ function renderAssignmentsTable() {
                   .join('')}
               </select>
             </td>
-            <td class="${task.capColor
-              .toLowerCase()
-              .replace(' ', '-')}" style="font-weight: bold;">${
-      task.capColor
-    }</td>
-            <td class="${task.timeColor.toLowerCase()}" style="font-weight: bold;">${
-      task.timeColor
-    }</td>`;
+            <td class="${
+              task.capColor ? task.capColor.toLowerCase() : ''
+            }" style="font-weight: bold;">${task.capColor || ''}</td>
+            <td class="${
+              task.timeColor ? task.timeColor.toLowerCase() : ''
+            }" style="font-weight: bold;">${task.timeColor || ''}</td>`;
     table.appendChild(row);
   });
 
@@ -450,7 +453,13 @@ function renderSummaryTable() {
             <td>${devTasks.length}</td>
             <td>${capAvg.toFixed(2)}</td>
             <td>${Math.floor(hours)}/${Math.floor(targetHours)}</td>
-            <td class="${statusColor}" style="font-weight: bold;">${status}</td>`;
+            <td class="${statusColor}" style="font-weight: bold; color: ${
+      statusColor === 'below-capacity'
+        ? '#d39e00'
+        : statusColor === 'at-capacity'
+        ? '#28a745'
+        : '#dc3545'
+    };">${status}</td>`;
     table.appendChild(row);
 
     // Accumulate team totals
@@ -494,7 +503,13 @@ function renderSummaryTable() {
         <td>${teamRow.tasks}</td>
         <td>${teamCapAvg.toFixed(2)}</td>
         <td>${Math.floor(teamRow.hours)}/${Math.floor(teamRow.targetHours)}</td>
-        <td class="${teamStatusColor}" style="font-weight: bold;">${teamStatus}</td>`;
+        <td class="${teamStatusColor}" style="font-weight: bold; color: ${
+    teamStatusColor === 'below-capacity'
+      ? '#d39e00'
+      : teamStatusColor === 'at-capacity'
+      ? '#28a745'
+      : '#dc3545'
+  };">${teamStatus}</td>`;
   table.appendChild(teamRowEl);
 
   // Render charts
@@ -529,7 +544,7 @@ function renderCharts(capData, hoursData, targetHoursData) {
             label: 'Capability Average',
             data: capData,
             backgroundColor: capData.map((v) =>
-              v < 1.5 ? '#ffc107' : v <= 2.49 ? '#28a745' : '#dc3545'
+              v < 1.5 ? '#fff3cd' : v <= 2.49 ? '#d4edda' : '#f8d7da'
             ),
           },
         ],
@@ -552,10 +567,10 @@ function renderCharts(capData, hoursData, targetHoursData) {
               const target = targetHoursData[i];
               const percentage = target > 0 ? (hours / target) * 100 : 0;
               return percentage < 80
-                ? '#ffc107'
+                ? '#fff3cd'
                 : percentage <= 100
-                ? '#28a745'
-                : '#dc3545';
+                ? '#d4edda'
+                : '#f8d7da';
             }),
           },
         ],

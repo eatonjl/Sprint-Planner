@@ -5,14 +5,17 @@ body {
 .table td {
   vertical-align: middle;
 }
-.green {
-  background-color: #d4edda;
+.trivial {
+  background-color: #fff3cd; /* Yellow background */
+  color: #d39e00; /* Yellow text */
 }
-.yellow {
-  background-color: #fff3cd;
+.optimal {
+  background-color: #d4edda; /* Green background */
+  color: #28a745; /* Green text */
 }
-.red {
-  background-color: #f8d7da;
+.challenging {
+  background-color: #f8d7da; /* Red background */
+  color: #dc3545; /* Red text */
 }
 .short {
   background-color: #e6f3ff;
@@ -23,6 +26,15 @@ body {
 .long {
   background-color: #ffe6e6;
 }
+.below-capacity {
+  color: #d39e00; /* Yellow text */
+}
+.at-capacity {
+  color: #28a745; /* Green text */
+}
+.above-capacity {
+  color: #dc3545; /* Red text */
+}
 .alert {
   font-weight: bold;
 }
@@ -30,6 +42,12 @@ body {
 .form-select.time {
   min-width: 100px; /* Ensure dropdowns are wide enough */
   white-space: nowrap; /* Prevent text wrapping */
+}
+.form-select.assign option[value=''] {
+  color: #dc3545; /* Red for "Select" option */
+}
+.form-select.assign option:not([value='']) {
+  color: inherit; /* Default color for developer names */
 }
 .table-responsive {
   overflow-x: auto; /* Enable horizontal scrolling for wide tables */
