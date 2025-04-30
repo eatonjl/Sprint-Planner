@@ -1,3 +1,5 @@
+// script.js
+
 // Data storage
 let sprintConfig = JSON.parse(localStorage.getItem('sprintConfig')) || {
   sprintLength: 2,
@@ -12,10 +14,6 @@ let sprintConfig = JSON.parse(localStorage.getItem('sprintConfig')) || {
 let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
 let votes = JSON.parse(localStorage.getItem('votes')) || {};
 let assignments = JSON.parse(localStorage.getItem('assignments')) || {};
-
-// Chart instances to track for destruction
-let capChartInstance = null;
-let hoursChartInstance = null;
 
 // Save data to LocalStorage
 function saveData() {
@@ -340,6 +338,9 @@ function renderAssignmentsTable() {
     row.innerHTML = `
             <td>${task.id}</td>
             <td>${task.description}</td>
+            <td class="${task.capColor.toLowerCase()}">${task.capColor}</td>
+            <td class="${task.timeColor.toLowerCase()}">${task.timeColor}</td>
+            <td>${task.hours}</td>
             <td><select class="form-select assign" data-task="${task.id}">
                 <option value="">Select</option>
                 ${sprintConfig.developers
@@ -350,21 +351,13 @@ function renderAssignmentsTable() {
                       }>${dev}</option>`
                   )
                   .join('')}
-            </select></td>
-            <td class="${task.capColor.toLowerCase()}">${task.capColor}</td>
-            <td class="${task.timeColor.toLowerCase()}">${task.timeColor}</td>`;
+            </select></td>`;
     table.appendChild(row);
   });
 
   document.querySelectorAll('.assign').forEach((select) => {
     select.addEventListener('change', (e) => {
-      const taskId = e.target.dataset.task;
-      const value = e.target.value;
-      if (value) {
-        assignments[taskId] = value;
-      } else {
-        delete assignments[taskId];
-      }
+      assignments[e.target.dataset.task] = e.target.value;
       saveData();
       console.log('Assignment updated:', assignments);
       renderSummaryTable();
@@ -378,14 +371,107 @@ function renderSummaryTable() {
   const table = document.getElementById('summaryTable');
   if (!table) return;
   table.innerHTML = '';
-  const teamRow = { tasks: 0, capPoints: 0, hours: 0, targetHours: 0 };
-
-  // Collect data for charts
-  const capData = [];
-  const hoursData = [];
-  const targetHoursData = [];
+  const teamRow = { tasks: 0, capPoints: 0, hours: 0 };
 
   sprintConfig.developers.forEach((dev) => {
+    const devTasks = Object.keys(assignments)
+      .filter((id) => assignments[id] === dev)
+      .map((id) => tasks.find((t) => t.id == id))
+      .filter((task) => task); // Filter out undefined tasks
+    const capPoints = devTasks
+      .map((task) => {
+        return task.capAvg <= 1.49 ? 1 : task.capAvg <= 2.49 ? 2 : 3;
+      })
+      .reduce((a, b) => a + b, 0);
+    const hours = devTasks.map((task) => task.hours).reduce((a, b) => a + b, 0);
+    const capAvg = devTasks.length ? capPoints / devTasks.length : 0;
+    const targetCapAvg = '2.00'; // Fixed target of 2.00
+    const targetHours = calculateTargetHours(dev).toFixed(2);
+
+    // Alert logic: Compare hours to target hours
+    let alert = '';
+    if (hours > targetHours * 1.1) {
+      alert = 'Overloaded';
+    } else if (hours < targetHours * 0.9) {
+      alert = 'Underloaded';
+    } else {
+      alert = 'OK';
+    }
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+            <td>${dev}</td>
+            <td>${devTasks.length}</td>
+            <td>${capPoints.toFixed(2)}</td>
+            <td>${capAvg.toFixed(2)}</td>
+            <td>${targetCapAvg}</td>
+            <td>${hours.toFixed(2)}</td>
+            <td>${targetHours}</td>
+            <td class="${alert.toLowerCase()}">${alert}</td>`;
+    table.appendChild(row);
+
+    teamRow.tasks += devTasks.length;
+    teamRow.capPoints += capPoints;
+    teamRow.hours += hours;
+  });
+
+  const teamCapAvg = teamRow.tasks ? teamRow.capPoints / teamRow.tasks : 0;
+  const teamTargetCapAvg = '2.00'; // Fixed target of 2.00
+  const teamTargetHours = sprintConfig.developers
+    .reduce((sum, dev) => sum + calculateTargetHours(dev), 0)
+    .toFixed(2);
+  const teamAlert =
+    teamRow.hours > teamTargetHours * 1.1
+      ? 'Overloaded'
+      : teamRow.hours < teamTargetHours * 0.9
+      ? 'Underloaded'
+      : 'OK';
+
+  const teamRowEl = document.createElement('tr');
+  teamRowEl.innerHTML = `
+        <td><strong>Team</strong></td>
+        <td>${teamRow.tasks}</td>
+        <td>${teamRow.capPoints.toFixed(2)}</td>
+        <td>${teamCapAvg.toFixed(2)}</td>
+        <td>${teamTargetCapAvg}</td>
+        <td>${teamRow.hours.toFixed(2)}</td>
+        <td>${teamTargetHours}</td>
+        <td class="${teamAlert.toLowerCase()}">${teamAlert}</td>`;
+  table.appendChild(teamRowEl);
+}
+
+function saveAssignments() {
+  saveData();
+  alert('Assignments saved!');
+  renderAssignmentsTable();
+}
+
+// Dashboard
+function renderDashboard() {
+  console.log('Rendering dashboard with assignments:', assignments);
+  const teamCapAvg = document.getElementById('teamCapAvg');
+  const teamTargetCapAvg = document.getElementById('teamTargetCapAvg');
+  const teamHours = document.getElementById('teamHours');
+  const teamTargetHours = document.getElementById('teamTargetHours');
+  const teamAlert = document.getElementById('teamAlert');
+  if (
+    !teamCapAvg ||
+    !teamHours ||
+    !teamAlert ||
+    !teamTargetCapAvg ||
+    !teamTargetHours
+  ) {
+    console.error('Dashboard elements not found.');
+    return;
+  }
+
+  if (!window.Chart) {
+    console.error('Chart.js not loaded.');
+    alert('Charts failed to load. Please check your internet connection.');
+    return;
+  }
+
+  const capData = sprintConfig.developers.map((dev) => {
     const devTasks = Object.keys(assignments)
       .filter((id) => assignments[id] === dev)
       .map((id) => tasks.find((t) => t.id == id))
@@ -395,106 +481,23 @@ function renderSummaryTable() {
         return task.capAvg <= 1.49 ? 1 : task.capAvg <= 2.49 ? 2 : 3;
       })
       .reduce((a, b) => a + b, 0);
-    const hours = devTasks.map((task) => task.hours).reduce((a, b) => a + b, 0);
-    const capAvg = devTasks.length ? capPoints / devTasks.length : 0;
-    const targetHours = calculateTargetHours(dev).toFixed(2);
-    const hoursPercentage = targetHours > 0 ? (hours / targetHours) * 100 : 0;
-    const statusValue = capAvg * (hours / (targetHours > 0 ? targetHours : 1));
-
-    // Status logic
-    let status = '';
-    let statusColor = '';
-    if (hoursPercentage > 100) {
-      status = 'Above Capacity';
-      statusColor = 'above-capacity';
-    } else if (statusValue < 1.5) {
-      status = 'Below Capacity';
-      statusColor = 'below-capacity';
-    } else if (statusValue <= 2.49) {
-      status = 'At Capacity';
-      statusColor = 'at-capacity';
-    } else {
-      status = 'Above Capacity';
-      statusColor = 'above-capacity';
-    }
-
-    const row = document.createElement('tr');
-    row.innerHTML = `
-            <td>${dev}</td>
-            <td>${devTasks.length}</td>
-            <td>${capAvg.toFixed(2)}</td>
-            <td>${hours.toFixed(2)}/${targetHours}</td>
-            <td class="${statusColor}">${status}</td>`;
-    table.appendChild(row);
-
-    // Accumulate team totals
-    teamRow.tasks += devTasks.length;
-    teamRow.capPoints += capPoints;
-    teamRow.hours += hours;
-    teamRow.targetHours += parseFloat(targetHours);
-
-    // Collect chart data
-    capData.push(capAvg);
-    hoursData.push(hours);
-    targetHoursData.push(parseFloat(targetHours));
+    return devTasks.length ? capPoints / devTasks.length : 0;
   });
 
-  // Team row
-  const teamCapAvg = teamRow.tasks ? teamRow.capPoints / teamRow.tasks : 0;
-  const teamHoursPercentage =
-    teamRow.targetHours > 0 ? (teamRow.hours / teamRow.targetHours) * 100 : 0;
-  const teamStatusValue =
-    teamCapAvg *
-    (teamRow.hours / (teamRow.targetHours > 0 ? teamRow.targetHours : 1));
-  let teamStatus = '';
-  let teamStatusColor = '';
-  if (teamHoursPercentage > 100) {
-    teamStatus = 'Above Capacity';
-    teamStatusColor = 'above-capacity';
-  } else if (teamStatusValue < 1.5) {
-    teamStatus = 'Below Capacity';
-    teamStatusColor = 'below-capacity';
-  } else if (teamStatusValue <= 2.49) {
-    teamStatus = 'At Capacity';
-    teamStatusColor = 'at-capacity';
-  } else {
-    teamStatus = 'Above Capacity';
-    teamStatusColor = 'above-capacity';
-  }
+  const hoursData = sprintConfig.developers.map((dev) => {
+    const devTasks = Object.keys(assignments)
+      .filter((id) => assignments[id] === dev)
+      .map((id) => tasks.find((t) => t.id == id))
+      .filter((task) => task);
+    return devTasks.map((task) => task.hours).reduce((a, b) => a + b, 0);
+  });
 
-  const teamRowEl = document.createElement('tr');
-  teamRowEl.innerHTML = `
-        <td><strong>Team</strong></td>
-        <td>${teamRow.tasks}</td>
-        <td>${teamCapAvg.toFixed(2)}</td>
-        <td>${teamRow.hours.toFixed(2)}/${teamRow.targetHours.toFixed(2)}</td>
-        <td class="${teamStatusColor}">${teamStatus}</td>`;
-  table.appendChild(teamRowEl);
-
-  // Render charts
-  renderCharts(capData, hoursData, targetHoursData);
-}
-
-function renderCharts(capData, hoursData, targetHoursData) {
-  if (!window.Chart) {
-    console.error('Chart.js not loaded.');
-    alert('Charts failed to load. Please check your internet connection.');
-    return;
-  }
+  const targetHoursData = sprintConfig.developers.map((dev) =>
+    calculateTargetHours(dev)
+  );
 
   try {
-    // Destroy existing chart instances
-    if (capChartInstance) {
-      capChartInstance.destroy();
-      capChartInstance = null;
-    }
-    if (hoursChartInstance) {
-      hoursChartInstance.destroy();
-      hoursChartInstance = null;
-    }
-
-    // Capability Chart
-    capChartInstance = new Chart(document.getElementById('capChart'), {
+    new Chart(document.getElementById('capChart'), {
       type: 'bar',
       data: {
         labels: sprintConfig.developers,
@@ -503,7 +506,7 @@ function renderCharts(capData, hoursData, targetHoursData) {
             label: 'Capability Average',
             data: capData,
             backgroundColor: capData.map((v) =>
-              v < 1.5 ? '#ffc107' : v <= 2.49 ? '#28a745' : '#dc3545'
+              v < 1.5 || v > 2.5 ? '#dc3545' : '#28a745'
             ),
           },
         ],
@@ -511,25 +514,23 @@ function renderCharts(capData, hoursData, targetHoursData) {
       options: { scales: { y: { beginAtZero: true, max: 3 } } },
     });
 
-    // Hours Chart
-    hoursChartInstance = new Chart(document.getElementById('hoursChart'), {
+    new Chart(document.getElementById('hoursChart'), {
       type: 'bar',
       data: {
         labels: sprintConfig.developers.map(
-          (dev, i) => `${dev} (${targetHoursData[i].toFixed(1)}h)`
+          (dev) => `${dev} (${calculateTargetHours(dev).toFixed(1)}h)`
         ),
         datasets: [
           {
             label: 'Hours',
             data: hoursData,
-            backgroundColor: hoursData.map((hours, i) => {
-              const target = targetHoursData[i];
-              const percentage = target > 0 ? (hours / target) * 100 : 0;
-              return percentage < 80
+            backgroundColor: hoursData.map((hours, index) => {
+              const target = targetHoursData[index];
+              return hours > target * 1.1
+                ? '#dc3545'
+                : hours < target * 0.9
                 ? '#ffc107'
-                : percentage <= 100
-                ? '#28a745'
-                : '#dc3545';
+                : '#28a745';
             }),
           },
         ],
@@ -540,12 +541,37 @@ function renderCharts(capData, hoursData, targetHoursData) {
     console.error('Error rendering charts:', error);
     alert('Failed to render charts. Check console for details.');
   }
-}
 
-function saveAssignments() {
-  saveData();
-  alert('Assignments saved!');
-  renderAssignmentsTable();
+  const teamTasks = Object.keys(assignments).length;
+  const teamCapPoints = Object.keys(assignments)
+    .map((id) => {
+      const task = tasks.find((t) => t.id == id);
+      if (!task) return 0;
+      return task.capAvg <= 1.49 ? 1 : task.capAvg <= 2.49 ? 2 : 3;
+    })
+    .reduce((a, b) => a + b, 0);
+  const teamHoursTotal = Object.keys(assignments)
+    .map((id) => {
+      const task = tasks.find((t) => t.id == id);
+      return task ? task.hours : 0;
+    })
+    .reduce((a, b) => a + b, 0);
+  const teamTargetHoursTotal = sprintConfig.developers
+    .reduce((sum, dev) => sum + calculateTargetHours(dev), 0)
+    .toFixed(2);
+
+  teamCapAvg.textContent = teamTasks
+    ? (teamCapPoints / teamTasks).toFixed(2)
+    : '0.00';
+  teamTargetCapAvg.textContent = '2.00';
+  teamHours.textContent = teamHoursTotal.toFixed(1);
+  teamTargetHours.textContent = teamTargetHoursTotal;
+  teamAlert.textContent =
+    teamHoursTotal > teamTargetHoursTotal * 1.1
+      ? 'Overloaded'
+      : teamHoursTotal < teamTargetHoursTotal * 0.9
+      ? 'Underloaded'
+      : 'OK';
 }
 
 // Function to set active navbar link
@@ -572,5 +598,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('votingTable')) renderVotingTable();
   if (document.getElementById('tasksTable')) renderTasksTable();
   if (document.getElementById('assignmentsTable')) renderAssignmentsTable();
+  if (document.getElementById('capChart')) renderDashboard();
   setActiveNav();
 });

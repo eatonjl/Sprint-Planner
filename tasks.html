@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sprint Planning Tool</title>
+    <title>Tasks - Sprint Planning</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -19,7 +19,7 @@
                     <a class="nav-link" href="index.html">Home</a>
                     <a class="nav-link" href="setup.html">Setup</a>
                     <a class="nav-link" href="voting.html">Voting</a>
-                    <a class="nav-link" href="tasks.html">Tasks</a>
+                    <a class="nav-link active" href="tasks.html">Tasks</a>
                     <a class="nav-link" href="assignments.html">Assignments</a>
                     <a class="nav-link" href="dashboard.html">Dashboard</a>
                 </div>
@@ -27,8 +27,22 @@
         </div>
     </nav>
     <div class="container mt-4">
-        <h1>Welcome to Sprint Planning</h1>
-        <p>Use this tool to estimate and assign tasks for your sprint. Start with Setup to configure your team and sprint.</p>
+        <h2>Task Calculations</h2>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Task #</th>
+                    <th>Description</th>
+                    <th>Cap Avg</th>
+                    <th>Cap Color</th>
+                    <th>Time Avg</th>
+                    <th>Time Color</th>
+                    <th>Composite</th>
+                    <th>Hours</th>
+                </tr>
+            </thead>
+            <tbody id="tasksTable"></tbody>
+        </table>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
