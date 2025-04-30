@@ -180,15 +180,15 @@ function renderVotingTable() {
                   task.id
                 }" data-dev="${dev}" data-type="cap">
                     <option value="">Select</option>
-                    <option value="Green" ${
-                      capValue === 'Green' ? 'selected' : ''
-                    }>Green</option>
-                    <option value="Yellow" ${
-                      capValue === 'Yellow' ? 'selected' : ''
-                    }>Yellow</option>
-                    <option value="Red" ${
-                      capValue === 'Red' ? 'selected' : ''
-                    }>Red</option>
+                    <option value="Below Capability" ${
+                      capValue === 'Below Capability' ? 'selected' : ''
+                    }>Below Capability</option>
+                    <option value="At Capability" ${
+                      capValue === 'At Capability' ? 'selected' : ''
+                    }>At Capability</option>
+                    <option value="Above Capability" ${
+                      capValue === 'Above Capability' ? 'selected' : ''
+                    }>Above Capability</option>
                 </select></td>
                 <td><select class="form-select time" data-task="${
                   task.id
@@ -250,11 +250,11 @@ function renderTasksTable() {
     const capPoints = sprintConfig.developers
       .map((dev) => {
         const val = votes[`${task.id}-${dev}-cap`];
-        return val === 'Green'
+        return val === 'Below Capability'
           ? 1
-          : val === 'Yellow'
+          : val === 'At Capability'
           ? 2
-          : val === 'Red'
+          : val === 'Above Capability'
           ? 3
           : 0;
       })
@@ -281,11 +281,11 @@ function renderTasksTable() {
       sprintConfig.developers
         .map((dev) => {
           const cap =
-            votes[`${task.id}-${dev}-cap`] === 'Green'
+            votes[`${task.id}-${dev}-cap`] === 'Below Capability'
               ? 1
-              : votes[`${task.id}-${dev}-cap`] === 'Yellow'
+              : votes[`${task.id}-${dev}-cap`] === 'At Capability'
               ? 2
-              : votes[`${task.id}-${dev}-cap`] === 'Red'
+              : votes[`${task.id}-${dev}-cap`] === 'Above Capability'
               ? 3
               : 0;
           const time =
@@ -301,7 +301,11 @@ function renderTasksTable() {
         .filter((v) => v)
         .reduce((a, b) => a + b, 0) / (capPoints.length || 1);
     const capColor =
-      capAvg <= 1.49 ? 'Green' : capAvg <= 2.49 ? 'Yellow' : 'Red';
+      capAvg <= 1.49
+        ? 'Below Capability'
+        : capAvg <= 2.49
+        ? 'At Capability'
+        : 'Above Capability';
     const timeColor =
       timeAvg <= 1.49 ? 'Short' : timeAvg <= 2.49 ? 'Medium' : 'Long';
     const hours = timeColor === 'Short' ? 2 : timeColor === 'Medium' ? 4.5 : 9;
@@ -319,9 +323,11 @@ function renderTasksTable() {
             <td>${task.id}</td>
             <td>${task.description}</td>
             <td>${capAvg.toFixed(2)}</td>
-            <td class="${capColor.toLowerCase()}">${capColor}</td>
+            <td class="${capColor
+              .toLowerCase()
+              .replace(' ', '-')}" style="font-weight: bold;">${capColor}</td>
             <td>${timeAvg.toFixed(2)}</td>
-            <td class="${timeColor.toLowerCase()}">${timeColor}</td>
+            <td class="${timeColor.toLowerCase()}" style="font-weight: bold;">${timeColor}</td>
             <td>${composite.toFixed(2)}</td>
             <td>${hours}</td>`;
     table.appendChild(row);
@@ -340,8 +346,11 @@ function renderAssignmentsTable() {
     row.innerHTML = `
             <td>${task.id}</td>
             <td>${task.description}</td>
-            <td><select class="form-select assign" data-task="${task.id}">
-                <option value="">Select</option>
+            <td>
+              <select class="form-select assign" data-task="${task.id}">
+                <option value="" ${
+                  !assignments[task.id] ? 'selected' : ''
+                }>Select</option>
                 ${sprintConfig.developers
                   .map(
                     (dev) =>
@@ -350,16 +359,33 @@ function renderAssignmentsTable() {
                       }>${dev}</option>`
                   )
                   .join('')}
-            </select></td>
-            <td class="${task.capColor.toLowerCase()}">${task.capColor}</td>
-            <td class="${task.timeColor.toLowerCase()}">${task.timeColor}</td>`;
+              </select>
+            </td>
+            <td class="${task.capColor
+              .toLowerCase()
+              .replace(' ', '-')}" style="font-weight: bold;">${
+      task.capColor
+    }</td>
+            <td class="${task.timeColor.toLowerCase()}" style="font-weight: bold;">${
+      task.timeColor
+    }</td>`;
     table.appendChild(row);
   });
 
   document.querySelectorAll('.assign').forEach((select) => {
+    // Set initial color based on value
+    if (!select.value) {
+      select.style.color = '#dc3545'; // Red for "Select"
+    } else {
+      select.style.color = ''; // Default color for developers
+    }
+
     select.addEventListener('change', (e) => {
       const taskId = e.target.dataset.task;
       const value = e.target.value;
+      // Update select color
+      e.target.style.color = value ? '' : '#dc3545';
+      // Update assignments
       if (value) {
         assignments[taskId] = value;
       } else {
@@ -397,7 +423,7 @@ function renderSummaryTable() {
       .reduce((a, b) => a + b, 0);
     const hours = devTasks.map((task) => task.hours).reduce((a, b) => a + b, 0);
     const capAvg = devTasks.length ? capPoints / devTasks.length : 0;
-    const targetHours = calculateTargetHours(dev).toFixed(2);
+    const targetHours = calculateTargetHours(dev);
     const hoursPercentage = targetHours > 0 ? (hours / targetHours) * 100 : 0;
     const statusValue = capAvg * (hours / (targetHours > 0 ? targetHours : 1));
 
@@ -423,20 +449,20 @@ function renderSummaryTable() {
             <td>${dev}</td>
             <td>${devTasks.length}</td>
             <td>${capAvg.toFixed(2)}</td>
-            <td>${hours.toFixed(2)}/${targetHours}</td>
-            <td class="${statusColor}">${status}</td>`;
+            <td>${Math.floor(hours)}/${Math.floor(targetHours)}</td>
+            <td class="${statusColor}" style="font-weight: bold;">${status}</td>`;
     table.appendChild(row);
 
     // Accumulate team totals
     teamRow.tasks += devTasks.length;
     teamRow.capPoints += capPoints;
     teamRow.hours += hours;
-    teamRow.targetHours += parseFloat(targetHours);
+    teamRow.targetHours += targetHours;
 
     // Collect chart data
     capData.push(capAvg);
     hoursData.push(hours);
-    targetHoursData.push(parseFloat(targetHours));
+    targetHoursData.push(targetHours);
   });
 
   // Team row
@@ -467,8 +493,8 @@ function renderSummaryTable() {
         <td><strong>Team</strong></td>
         <td>${teamRow.tasks}</td>
         <td>${teamCapAvg.toFixed(2)}</td>
-        <td>${teamRow.hours.toFixed(2)}/${teamRow.targetHours.toFixed(2)}</td>
-        <td class="${teamStatusColor}">${teamStatus}</td>`;
+        <td>${Math.floor(teamRow.hours)}/${Math.floor(teamRow.targetHours)}</td>
+        <td class="${teamStatusColor}" style="font-weight: bold;">${teamStatus}</td>`;
   table.appendChild(teamRowEl);
 
   // Render charts
@@ -516,7 +542,7 @@ function renderCharts(capData, hoursData, targetHoursData) {
       type: 'bar',
       data: {
         labels: sprintConfig.developers.map(
-          (dev, i) => `${dev} (${targetHoursData[i].toFixed(1)}h)`
+          (dev, i) => `${dev} (${Math.floor(targetHoursData[i])}h)`
         ),
         datasets: [
           {
