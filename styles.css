@@ -55,5 +55,9 @@ body {
   overflow-x: auto; /* Enable horizontal scrolling for wide tables */
 }
 .canvas-container {
-  padding-bottom: 20px; /* Add padding below charts */
+  padding-bottom: 30px; /* Increased padding below charts */
+  margin-bottom: 30px; /* Added margin for extra spacing */
+}
+.container {
+  margin-bottom: 30px; /* Ensure space at the bottom of the page */
 }

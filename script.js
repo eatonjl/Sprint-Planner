@@ -1,6 +1,5 @@
 // Data storage
 let sprintConfig = JSON.parse(localStorage.getItem('sprintConfig')) || {
-  sprintLength: 2,
   days: 10,
   hoursPerDay: 8,
   overhead: 10,
@@ -40,9 +39,9 @@ function saveData() {
 function calculateTargetHours(developer) {
   const days = parseInt(sprintConfig.days) || 10;
   const hoursPerDay = parseInt(sprintConfig.hoursPerDay) || 8;
-  const overhead = parseInt(sprintConfig.overhead) || 10;
-  const holidays = parseInt(sprintConfig.holidays) || 0;
-  const buffer = parseInt(sprintConfig.buffer) || 15;
+  const overhead = parseInt(sprintConfig.overhead) || 0; // Allow 0
+  const holidays = parseInt(sprintConfig.holidays) || 0; // Allow 0
+  const buffer = parseInt(sprintConfig.buffer) || 0; // Allow 0
   const personalDaysOff = sprintConfig.personalDaysOff[developer] || 0;
 
   // Calculate available days
@@ -147,21 +146,21 @@ document.getElementById('setupForm')?.addEventListener('submit', (e) => {
     });
   }
   const newConfig = {
-    sprintLength:
-      parseInt(document.getElementById('sprintLength').value) ||
-      sprintConfig.sprintLength,
-    days: parseInt(document.getElementById('days').value) || sprintConfig.days,
-    hoursPerDay:
-      parseInt(document.getElementById('hoursPerDay').value) ||
-      sprintConfig.hoursPerDay,
-    overhead:
-      parseInt(document.getElementById('overhead').value) ||
-      sprintConfig.overhead,
-    holidays:
-      parseInt(document.getElementById('holidays').value) ||
-      sprintConfig.holidays,
-    buffer:
-      parseInt(document.getElementById('buffer').value) || sprintConfig.buffer,
+    days: !isNaN(parseInt(document.getElementById('days').value))
+      ? parseInt(document.getElementById('days').value)
+      : sprintConfig.days,
+    hoursPerDay: !isNaN(parseInt(document.getElementById('hoursPerDay').value))
+      ? parseInt(document.getElementById('hoursPerDay').value)
+      : sprintConfig.hoursPerDay,
+    overhead: !isNaN(parseInt(document.getElementById('overhead').value))
+      ? parseInt(document.getElementById('overhead').value)
+      : sprintConfig.overhead,
+    holidays: !isNaN(parseInt(document.getElementById('holidays').value))
+      ? parseInt(document.getElementById('holidays').value)
+      : sprintConfig.holidays,
+    buffer: !isNaN(parseInt(document.getElementById('buffer').value))
+      ? parseInt(document.getElementById('buffer').value)
+      : sprintConfig.buffer,
     developers:
       document
         .getElementById('developers')
@@ -180,7 +179,6 @@ document.getElementById('setupForm')?.addEventListener('submit', (e) => {
 function loadSetup() {
   const form = document.getElementById('setupForm');
   if (form) {
-    document.getElementById('sprintLength').value = sprintConfig.sprintLength;
     document.getElementById('days').value = sprintConfig.days;
     document.getElementById('hoursPerDay').value = sprintConfig.hoursPerDay;
     document.getElementById('overhead').value = sprintConfig.overhead;

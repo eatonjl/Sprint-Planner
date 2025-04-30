@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Assignments</title>
+    <title>Assignments - Sprint Planning</title>
     <link rel="stylesheet" href="styles.css" />
     <!-- Include Bootstrap -->
     <link
@@ -17,7 +17,7 @@
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
       <div class="container-fluid">
-        <a class="navbar-brand" href="index.html">Sprint Planner</a>
+        <a class="navbar-brand" href="index.html">Sprint Planning</a>
         <button
           class="navbar-toggler"
           type="button"
@@ -30,20 +30,12 @@
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav">
-            <li class="nav-item">
-              <a class="nav-link" href="index.html">Home</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="setup.html">Setup</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="voting.html">Voting</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="assignments.html">Assignments</a>
-            </li>
-          </ul>
+          <div class="navbar-nav">
+            <a class="nav-link" href="index.html">Home</a>
+            <a class="nav-link" href="setup.html">Setup</a>
+            <a class="nav-link" href="voting.html">Voting</a>
+            <a class="nav-link active" href="assignments.html">Assignments</a>
+          </div>
         </div>
       </div>
     </nav>
@@ -90,11 +82,15 @@
       <div class="row">
         <div class="col-md-6">
           <h3>Capability Average</h3>
-          <canvas id="capChart"></canvas>
+          <div class="canvas-container">
+            <canvas id="capChart"></canvas>
+          </div>
         </div>
         <div class="col-md-6">
           <h3>Hours</h3>
-          <canvas id="hoursChart"></canvas>
+          <div class="canvas-container">
+            <canvas id="hoursChart"></canvas>
+          </div>
         </div>
       </div>
     </div>
