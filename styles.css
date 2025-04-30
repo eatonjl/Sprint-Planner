@@ -41,13 +41,6 @@ body {
   width: auto; /* Allow natural width */
   white-space: nowrap; /* Prevent text wrapping */
 }
-.form-select.cap option,
-.form-select.time option {
-  color: inherit !important; /* Ensure dropdown options use their class colors */
-}
-.form-select.assign {
-  color: black; /* Default color for select element */
-}
 .form-select.assign option[value=''] {
   color: #dc3545 !important; /* Red for "Select" option */
 }

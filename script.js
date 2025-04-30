@@ -284,15 +284,46 @@ function renderVotingTable() {
   });
 
   document.querySelectorAll('.cap, .time').forEach((select) => {
+    // Set initial color based on selected value
+    updateSelectColor(select);
     select.addEventListener('change', (e) => {
       votes[
         `${e.target.dataset.task}-${e.target.dataset.dev}-${e.target.dataset.type}`
       ] = e.target.value;
       saveData();
       updateTaskCalculations(); // Update task calculations on vote change
+      updateSelectColor(e.target); // Update color on change
       console.log('Vote updated:', votes);
     });
   });
+}
+
+// Helper function to update select element color based on selected value
+function updateSelectColor(select) {
+  const value = select.value;
+  if (select.classList.contains('cap')) {
+    select.style.color =
+      value === ''
+        ? ''
+        : value === 'Trivial'
+        ? '#d39e00'
+        : value === 'Optimal'
+        ? '#28a745'
+        : value === 'Challenging'
+        ? '#dc3545'
+        : '';
+  } else if (select.classList.contains('time')) {
+    select.style.color =
+      value === ''
+        ? ''
+        : value === 'Short'
+        ? '#28a745'
+        : value === 'Medium'
+        ? '#d39e00'
+        : value === 'Long'
+        ? '#dc3545'
+        : '';
+  }
 }
 
 function saveVotes() {
@@ -376,9 +407,13 @@ function renderAssignmentsTable() {
   });
 
   document.querySelectorAll('.assign').forEach((select) => {
+    // Set initial color based on selected value
+    select.style.color = select.value === '' ? '#dc3545' : 'black';
     select.addEventListener('change', (e) => {
       const taskId = e.target.dataset.task;
       const value = e.target.value;
+      // Update select color
+      e.target.style.color = value === '' ? '#dc3545' : 'black';
       // Update assignments
       if (value) {
         assignments[taskId] = value;
