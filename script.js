@@ -236,7 +236,7 @@ function renderVotingTable() {
   headerRow.innerHTML =
     '<th>Task #</th><th>Description</th>' +
     sprintConfig.developers
-      .map((dev) => `<th>${dev} Cap</th><th>${dev} Time</th>`)
+      .map((dev) => `<th>${dev} Capability</th><th>${dev} Time</th>`) // Changed "Cap" to "Capability"
       .join('') +
     '<th>Actions</th>';
   head.appendChild(headerRow);
