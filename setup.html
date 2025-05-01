@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Setup - Sprint Planning</title>
+    <title>Sprint Planner - Setup</title>
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
       rel="stylesheet"
@@ -13,7 +13,7 @@
   <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
       <div class="container-fluid">
-        <a class="navbar-brand" href="index.html">Sprint Planning</a>
+        <a class="navbar-brand" href="index.html">Sprint Planner</a>
         <button
           class="navbar-toggler"
           type="button"
@@ -26,82 +26,55 @@
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-          <div class="navbar-nav">
-            <a class="nav-link" href="index.html">Home</a>
-            <a class="nav-link active" href="setup.html">Setup</a>
-            <a class="nav-link" href="voting.html">Voting</a>
-            <a class="nav-link" href="assignments.html">Assignments</a>
-          </div>
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link" href="index.html">Home</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="setup.html">Setup</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="voting.html">Voting</a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link" href="assignments.html">Assignments</a>
+            </li>
+          </ul>
         </div>
       </div>
     </nav>
+
     <div class="container mt-4">
-      <h2>Setup Sprint</h2>
+      <h1>Sprint Setup</h1>
       <form id="setupForm">
         <div class="mb-3">
           <label for="days" class="form-label">Days per Sprint</label>
-          <input
-            type="number"
-            class="form-control"
-            id="days"
-            value="10"
-            min="1"
-            required
-          />
+          <input type="number" class="form-control" id="days" required />
         </div>
         <div class="mb-3">
           <label for="hoursPerDay" class="form-label">Hours per Day</label>
-          <input
-            type="number"
-            class="form-control"
-            id="hoursPerDay"
-            value="8"
-            min="1"
-            required
-          />
+          <input type="number" class="form-control" id="hoursPerDay" required />
         </div>
         <div class="mb-3">
           <label for="overhead" class="form-label"
             >Overhead Hours per Developer</label
           >
-          <input
-            type="number"
-            class="form-control"
-            id="overhead"
-            value="10"
-            min="0"
-            required
-          />
+          <input type="number" class="form-control" id="overhead" required />
           <small class="form-text text-muted"
             >Non-task hours per developer (e.g., meetings, emails, admin work)
             during the sprint (will be applied before Buffer Percentage).</small
           >
         </div>
         <div class="mb-3">
-          <label for="holidays" class="form-label">Holiday Days</label>
-          <input
-            type="number"
-            class="form-control"
-            id="holidays"
-            value="1"
-            min="0"
-            required
-          />
-          <small class="form-text text-muted"
-            >Company-wide holidays affecting all developers.</small
+          <label for="holidays" class="form-label"
+            >Holidays during Sprint</label
           >
+          <input type="number" class="form-control" id="holidays" required />
         </div>
         <div class="mb-3">
           <label for="buffer" class="form-label">Buffer Percentage</label>
-          <input
-            type="number"
-            class="form-control"
-            id="buffer"
-            value="15"
-            min="0"
-            max="100"
-            required
-          />
+          <input type="number" class="form-control" id="buffer" required />
           <small class="form-text text-muted"
             >Percentage of sprint hours added as contingency for delays or
             unexpected tasks (will be applied after Overhead Hours).</small
@@ -109,89 +82,27 @@
         </div>
         <div class="mb-3">
           <label for="developers" class="form-label"
-            >Developer Names (comma-separated)</label
+            >Developers (comma-separated)</label
           >
-          <input
-            type="text"
-            class="form-control"
-            id="developers"
-            value="Jim, Jerry, Alice, Bob"
-            required
-          />
+          <input type="text" class="form-control" id="developers" required />
         </div>
         <div class="mb-3">
           <label for="personalDaysOff" class="form-label"
-            >Personal Days Off (e.g., Alice: 2, Bob: 1)</label
+            >Personal Days Off (e.g., Alice: 1, Bob: 2)</label
           >
-          <textarea
-            class="form-control"
-            id="personalDaysOff"
-            rows="4"
-          ></textarea>
-          <small class="form-text text-muted"
-            >List personal days off for each developer, comma-separated (e.g.,
-            Alice: 2, Bob: 1, Charlie: 0).</small
-          >
-        </div>
-        <div class="mb-3">
-          <label for="shortHours" class="form-label"
-            >Hours for Short Tasks</label
-          >
-          <input
-            type="number"
-            class="form-control"
-            id="shortHours"
-            value="2"
-            min="0"
-            step="any"
-            required
-          />
-          <small class="form-text text-muted"
-            >Hours assigned to tasks voted as Short.</small
-          >
-        </div>
-        <div class="mb-3">
-          <label for="mediumHours" class="form-label"
-            >Hours for Medium Tasks</label
-          >
-          <input
-            type="number"
-            class="form-control"
-            id="mediumHours"
-            value="4.5"
-            min="0"
-            step="any"
-            required
-          />
-          <small class="form-text text-muted"
-            >Hours assigned to tasks voted as Medium.</small
-          >
-        </div>
-        <div class="mb-3">
-          <label for="longHours" class="form-label">Hours for Long Tasks</label>
-          <input
-            type="number"
-            class="form-control"
-            id="longHours"
-            value="9"
-            min="0"
-            step="any"
-            required
-          />
-          <small class="form-text text-muted"
-            >Hours assigned to tasks voted as Long.</small
-          >
+          <input type="text" class="form-control" id="personalDaysOff" />
         </div>
         <button type="submit" class="btn btn-primary">Save Setup</button>
         <button
           type="button"
           class="btn btn-danger ms-2"
-          onclick="localStorage.clear(); location.reload();"
+          onclick="if(confirm('Are you sure you want to reset all data?')) { localStorage.clear(); location.reload(); }"
         >
           Reset All Data
         </button>
       </form>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
   </body>

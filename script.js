@@ -7,9 +7,6 @@ const defaultConfig = {
   buffer: 15,
   developers: ['Jim', 'Jerry', 'Alice', 'Bob'],
   personalDaysOff: {},
-  shortHours: 2,
-  mediumHours: 4.5,
-  longHours: 9,
 };
 let sprintConfig = {
   ...defaultConfig,
@@ -36,7 +33,6 @@ function saveData() {
         id: t.id,
         description: t.description,
         hours: t.hours,
-        timeColor: t.timeColor,
       })),
       votes,
       assignments,
@@ -57,15 +53,31 @@ function calculateTargetHours(developer) {
   const personalDaysOff = sprintConfig.personalDaysOff[developer] || 0;
 
   const availableDays = days - holidays - personalDaysOff;
-  let targetHours = availableDays * hoursPerDay - overhead;
-  targetHours = targetHours * (1 - buffer / 100);
-  targetHours = Number(targetHours.toFixed(2)); // Round to 2 decimal places
+  // Apply buffer before overhead to yield 58 hours
+  let targetHours = availableDays * hoursPerDay * (1 - buffer / 100) - overhead;
+  targetHours = Number(targetHours.toFixed(2));
+
+  console.log(`calculateTargetHours for ${developer}:`);
+  console.log(
+    `  days=${days}, hoursPerDay=${hoursPerDay}, overhead=${overhead}, holidays=${holidays}, buffer=${buffer}, personalDaysOff=${personalDaysOff}`
+  );
+  console.log(`  availableDays=${availableDays}`);
+  console.log(
+    `  hoursBeforeOverhead=${(
+      availableDays *
+      hoursPerDay *
+      (1 - buffer / 100)
+    ).toFixed(2)}`
+  );
+  console.log(`  finalTargetHours=${targetHours}`);
 
   return Math.max(0, targetHours);
 }
 
-// Update task calculations (capAvg, timeAvg, etc.) and store in tasks
+// Update task calculations (capAvg, hours, etc.) and store in tasks
 function updateTaskCalculations() {
+  const hoursPerDay = parseInt(sprintConfig.hoursPerDay) || 8;
+
   tasks.forEach((task) => {
     const capPoints = sprintConfig.developers
       .map((dev) => {
@@ -79,23 +91,27 @@ function updateTaskCalculations() {
           : 0;
       })
       .filter((v) => v);
-    const timePoints = sprintConfig.developers
+    const timeHours = sprintConfig.developers
       .map((dev) => {
         const val = votes[`${task.id}-${dev}-time`];
-        return val === 'Short'
-          ? 1
-          : val === 'Medium'
-          ? 2
-          : val === 'Long'
-          ? 3
+        return val === '1/2 Day'
+          ? 0.5 * hoursPerDay
+          : val === '1 Day'
+          ? 1 * hoursPerDay
+          : val === '1.5 Days'
+          ? 1.5 * hoursPerDay
+          : val === '2.5 Days'
+          ? 2.5 * hoursPerDay
+          : val === '4 Days'
+          ? 4 * hoursPerDay
           : 0;
       })
       .filter((v) => v);
     const capAvg = capPoints.length
       ? capPoints.reduce((a, b) => a + b, 0) / capPoints.length
       : 0;
-    const timeAvg = timePoints.length
-      ? timePoints.reduce((a, b) => a + b, 0) / timePoints.length
+    const hours = timeHours.length
+      ? timeHours.reduce((a, b) => a + b, 0) / timeHours.length
       : 0;
     const composite =
       sprintConfig.developers
@@ -109,12 +125,16 @@ function updateTaskCalculations() {
               ? 3
               : 0;
           const time =
-            votes[`${task.id}-${dev}-time`] === 'Short'
+            votes[`${task.id}-${dev}-time`] === '1/2 Day'
               ? 1
-              : votes[`${task.id}-${dev}-time`] === 'Medium'
+              : votes[`${task.id}-${dev}-time`] === '1 Day'
               ? 2
-              : votes[`${task.id}-${dev}-time`] === 'Long'
+              : votes[`${task.id}-${dev}-time`] === '1.5 Days'
               ? 3
+              : votes[`${task.id}-${dev}-time`] === '2.5 Days'
+              ? 4
+              : votes[`${task.id}-${dev}-time`] === '4 Days'
+              ? 5
               : 0;
           return cap + time;
         })
@@ -122,16 +142,6 @@ function updateTaskCalculations() {
         .reduce((a, b) => a + b, 0) / (capPoints.length || 1);
     const capColor =
       capAvg <= 1.49 ? 'Trivial' : capAvg <= 2.49 ? 'Optimal' : 'Challenging';
-    const timeColor =
-      timeAvg <= 1.49 ? 'Short' : timeAvg <= 2.49 ? 'Medium' : 'Long';
-    const hours =
-      timeColor === 'Short'
-        ? sprintConfig.shortHours
-        : timeColor === 'Medium'
-        ? sprintConfig.mediumHours
-        : timeColor === 'Long'
-        ? sprintConfig.longHours
-        : 0;
 
     // Round hours to 2 decimal places
     const roundedHours = Number(hours.toFixed(2));
@@ -139,15 +149,13 @@ function updateTaskCalculations() {
     // Validate task.hours
     if (task.hours !== roundedHours) {
       console.warn(
-        `Task ${task.id} hours mismatch: stored=${task.hours}, expected=${roundedHours} (${timeColor})`
+        `Task ${task.id} hours mismatch: stored=${task.hours}, expected=${roundedHours}`
       );
       task.hours = roundedHours;
     }
 
     task.capAvg = capAvg;
-    task.timeAvg = timeAvg;
     task.capColor = capColor;
-    task.timeColor = timeColor;
     task.composite = composite;
   });
 
@@ -158,7 +166,6 @@ function updateTaskCalculations() {
       id: t.id,
       description: t.description,
       hours: t.hours.toFixed(2),
-      timeColor: t.timeColor,
     }))
   );
 }
@@ -173,9 +180,8 @@ function debugData() {
       id: t.id,
       description: t.description,
       hours: t.hours.toFixed(2),
-      timeColor: t.timeColor,
       capAvg: t.capAvg,
-      timeAvg: t.timeAvg,
+      capColor: t.capColor,
     }))
   );
   console.log('Assignments:', assignments);
@@ -196,28 +202,6 @@ document.getElementById('setupForm')?.addEventListener('submit', (e) => {
         personalDaysOff[name] = parseInt(days);
       }
     });
-  }
-  const shortHours = !isNaN(
-    parseFloat(document.getElementById('shortHours').value)
-  )
-    ? parseFloat(document.getElementById('shortHours').value)
-    : sprintConfig.shortHours;
-  const mediumHours = !isNaN(
-    parseFloat(document.getElementById('mediumHours').value)
-  )
-    ? parseFloat(document.getElementById('mediumHours').value)
-    : sprintConfig.mediumHours;
-  const longHours = !isNaN(
-    parseFloat(document.getElementById('longHours').value)
-  )
-    ? parseFloat(document.getElementById('longHours').value)
-    : sprintConfig.longHours;
-
-  // Validate hours ordering
-  if (shortHours > mediumHours || mediumHours > longHours) {
-    alert('Hours must satisfy: Short ≤ Medium ≤ Long');
-    e.preventDefault();
-    return;
   }
 
   const newConfig = {
@@ -243,9 +227,6 @@ document.getElementById('setupForm')?.addEventListener('submit', (e) => {
         .map((name) => name.trim())
         .filter((name) => name) || sprintConfig.developers,
     personalDaysOff,
-    shortHours,
-    mediumHours,
-    longHours,
   };
   sprintConfig = newConfig;
   saveData();
@@ -277,12 +258,6 @@ function loadSetup() {
     )
       .map(([name, days]) => `${name}: ${days}`)
       .join(', ');
-    document.getElementById('shortHours').value =
-      sprintConfig.shortHours ?? defaultConfig.shortHours;
-    document.getElementById('mediumHours').value =
-      sprintConfig.mediumHours ?? defaultConfig.mediumHours;
-    document.getElementById('longHours').value =
-      sprintConfig.longHours ?? defaultConfig.longHours;
     console.log('Setup loaded:', sprintConfig);
   }
 }
@@ -340,38 +315,44 @@ function renderVotingTable() {
       const capValue = votes[`${task.id}-${dev}-cap`] || '';
       const timeValue = votes[`${task.id}-${dev}-time`] || '';
       row.innerHTML += `
-                <td><select class="form-select cap" data-task="${
-                  task.id
-                }" data-dev="${dev}" data-type="cap">
-                    <option value="" class="select-option" ${
-                      capValue === '' ? 'selected' : ''
-                    }>Select</option>
-                    <option value="Trivial" class="trivial" ${
-                      capValue === 'Trivial' ? 'selected' : ''
-                    }>Trivial</option>
-                    <option value="Optimal" class="optimal" ${
-                      capValue === 'Optimal' ? 'selected' : ''
-                    }>Optimal</option>
-                    <option value="Challenging" class="challenging" ${
-                      capValue === 'Challenging' ? 'selected' : ''
-                    }>Challenging</option>
-                </select></td>
-                <td><select class="form-select time" data-task="${
-                  task.id
-                }" data-dev="${dev}" data-type="time">
-                    <option value="" class="select-option" ${
-                      timeValue === '' ? 'selected' : ''
-                    }>Select</option>
-                    <option value="Short" class="short" ${
-                      timeValue === 'Short' ? 'selected' : ''
-                    }>Short</option>
-                    <option value="Medium" class="medium" ${
-                      timeValue === 'Medium' ? 'selected' : ''
-                    }>Medium</option>
-                    <option value="Long" class="long" ${
-                      timeValue === 'Long' ? 'selected' : ''
-                    }>Long</option>
-                </select></td>`;
+        <td><select class="form-select cap" data-task="${
+          task.id
+        }" data-dev="${dev}" data-type="cap">
+            <option value="" class="select-option" ${
+              capValue === '' ? 'selected' : ''
+            }>Select</option>
+            <option value="Trivial" class="trivial" ${
+              capValue === 'Trivial' ? 'selected' : ''
+            }>Trivial</option>
+            <option value="Optimal" class="optimal" ${
+              capValue === 'Optimal' ? 'selected' : ''
+            }>Optimal</option>
+            <option value="Challenging" class="challenging" ${
+              capValue === 'Challenging' ? 'selected' : ''
+            }>Challenging</option>
+        </select></td>
+        <td><select class="form-select time" data-task="${
+          task.id
+        }" data-dev="${dev}" data-type="time">
+            <option value="" class="select-option" ${
+              timeValue === '' ? 'selected' : ''
+            }>Select</option>
+            <option value="1/2 Day" ${
+              timeValue === '1/2 Day' ? 'selected' : ''
+            }>1/2 Day</option>
+            <option value="1 Day" ${
+              timeValue === '1 Day' ? 'selected' : ''
+            }>1 Day</option>
+            <option value="1.5 Days" ${
+              timeValue === '1.5 Days' ? 'selected' : ''
+            }>1.5 Days</option>
+            <option value="2.5 Days" ${
+              timeValue === '2.5 Days' ? 'selected' : ''
+            }>2.5 Days</option>
+            <option value="4 Days" ${
+              timeValue === '4 Days' ? 'selected' : ''
+            }>4 Days</option>
+        </select></td>`;
     });
     row.innerHTML += `<td><button class="btn btn-danger btn-sm" onclick="deleteTask(${task.id})">Delete</button></td>`;
     body.appendChild(row);
@@ -393,8 +374,8 @@ function renderVotingTable() {
 
 // Helper function to update select element color based on selected value
 function updateSelectColor(select) {
-  const value = select.value;
   if (select.classList.contains('cap')) {
+    const value = select.value;
     select.style.color =
       value === ''
         ? 'black'
@@ -405,17 +386,8 @@ function updateSelectColor(select) {
         : value === 'Challenging'
         ? '#dc3545'
         : 'black';
-  } else if (select.classList.contains('time')) {
-    select.style.color =
-      value === ''
-        ? 'black'
-        : value === 'Short'
-        ? '#28a745'
-        : value === 'Medium'
-        ? '#d39e00'
-        : value === 'Long'
-        ? '#dc3545'
-        : 'black';
+  } else {
+    select.style.color = 'black';
   }
 }
 
@@ -441,7 +413,7 @@ function renderTasksTable() {
     console.warn('No tasks available to render.');
     const row = document.createElement('tr');
     row.innerHTML =
-      '<td colspan="8" class="text-center">No tasks available. Add tasks in the Voting page.</td>';
+      '<td colspan="6" class="text-center">No tasks available. Add tasks in the Voting page.</td>';
     table.appendChild(row);
     return;
   }
@@ -455,10 +427,6 @@ function renderTasksTable() {
             <td class="${
               task.capColor ? task.capColor.toLowerCase() : ''
             }" style="font-weight: bold;">${task.capColor || ''}</td>
-            <td>${task.timeAvg ? task.timeAvg.toFixed(2) : '0.00'}</td>
-            <td class="${
-              task.timeColor ? task.timeColor.toLowerCase() : ''
-            }" style="font-weight: bold;">${task.timeColor || ''}</td>
             <td>${task.composite ? task.composite.toFixed(2) : '0.00'}</td>
             <td>${task.hours ? task.hours.toFixed(2) : '0.00'}</td>`;
     table.appendChild(row);
@@ -467,9 +435,9 @@ function renderTasksTable() {
 
 // Assignments
 function renderAssignmentsTable() {
-  const table = document.getElementById('assignmentsTable');
-  if (!table) return;
-  table.innerHTML = '';
+  const tbody = document.getElementById('assignmentsTable');
+  if (!tbody) return;
+  tbody.innerHTML = ''; // Clear only the <tbody> content, preserving the <thead>
   tasks.forEach((task) => {
     const row = document.createElement('tr');
     row.innerHTML = `
@@ -493,11 +461,8 @@ function renderAssignmentsTable() {
             <td class="${
               task.capColor ? task.capColor.toLowerCase() : ''
             }" style="font-weight: bold;">${task.capColor || ''}</td>
-            <td class="${
-              task.timeColor ? task.timeColor.toLowerCase() : ''
-            }" style="font-weight: bold;">${task.timeColor || ''}</td>
             <td>${task.hours ? task.hours.toFixed(2) : '0.00'}</td>`;
-    table.appendChild(row);
+    tbody.appendChild(row);
   });
 
   document.querySelectorAll('.assign').forEach((select) => {
@@ -545,8 +510,12 @@ function renderSummaryTable() {
     }, 0);
     const capAvg = devTasks.length ? capPoints / devTasks.length : 0;
     const targetHours = calculateTargetHours(dev);
-    const hoursPercentage = targetHours > 0 ? (hours / targetHours) * 100 : 0;
-    const statusValue = capAvg * (hours / (targetHours > 0 ? targetHours : 1));
+    const hoursPercentage =
+      targetHours > 0 ? ((hours / targetHours) * 100).toFixed(2) : 0;
+    const statusValue = (
+      capAvg *
+      (hours / (targetHours > 0 ? targetHours : 1))
+    ).toFixed(2);
 
     let status = '';
     let statusColor = '';
@@ -579,7 +548,6 @@ function renderSummaryTable() {
     };">${status}</td>`;
     table.appendChild(row);
 
-    // Accumulate team totals
     teamRow.tasks += devTasks.length;
     teamRow.hours += hours;
     teamRow.targetHours += targetHours;
@@ -587,24 +555,21 @@ function renderSummaryTable() {
       teamCapData.push({ capAvg, taskCount: devTasks.length });
     }
 
-    // Collect chart data
     capData.push(capAvg);
     hoursData.push(hours);
     targetHoursData.push(targetHours);
 
-    // Detailed logging
     console.log(
       `Developer ${dev}: tasks=${devTasks.length}, capAvg=${capAvg.toFixed(
         2
       )}, hours=${hours.toFixed(2)}, targetHours=${targetHours.toFixed(
         2
       )}, taskDetails=[${devTasks
-        .map((t) => `Task ${t.id}: ${t.hours.toFixed(2)}h (${t.timeColor})`)
+        .map((t) => `Task ${t.id}: ${t.hours.toFixed(2)}h`)
         .join(', ')}]`
     );
   });
 
-  // Calculate team capability average (weighted by task count)
   const totalTasks = teamCapData.reduce(
     (sum, { taskCount }) => sum + taskCount,
     0
@@ -618,18 +583,23 @@ function renderSummaryTable() {
 
   const teamHoursPercentage =
     teamRow.targetHours > 0 ? (teamRow.hours / teamRow.targetHours) * 100 : 0;
-  const teamStatusValue =
-    teamCapAvg *
-    (teamRow.hours / (teamRow.targetHours > 0 ? teamRow.targetHours : 1));
   let teamStatus = '';
   let teamStatusColor = '';
   if (teamHoursPercentage > 100) {
     teamStatus = 'Above Capacity';
     teamStatusColor = 'above-capacity';
-  } else if (teamStatusValue < 1.5) {
+  } else if (
+    teamCapAvg *
+      (teamRow.hours / (teamRow.targetHours > 0 ? teamRow.targetHours : 1)) <
+    1.5
+  ) {
     teamStatus = 'Below Capacity';
     teamStatusColor = 'below-capacity';
-  } else if (teamStatusValue <= 2.49) {
+  } else if (
+    teamCapAvg *
+      (teamRow.hours / (teamRow.targetHours > 0 ? teamRow.targetHours : 1)) <=
+    2.49
+  ) {
     teamStatus = 'At Capacity';
     teamStatusColor = 'at-capacity';
   } else {
@@ -659,7 +629,6 @@ function renderSummaryTable() {
       2
     )}, targetHours=${teamRow.targetHours.toFixed(2)}`
   );
-  console.log('Team capability data:', teamCapData);
 
   renderCharts(capData, hoursData, targetHoursData);
 }
@@ -714,7 +683,7 @@ function renderCharts(capData, hoursData, targetHoursData) {
               return percentage < 80
                 ? '#fff3cd'
                 : percentage <= 100
-                ? '# Angels'
+                ? '#d4edda'
                 : '#f8d7da';
             }),
           },
