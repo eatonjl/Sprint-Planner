@@ -46,6 +46,7 @@
             id="days"
             value="10"
             min="1"
+            required
           />
         </div>
         <div class="mb-3">
@@ -56,6 +57,7 @@
             id="hoursPerDay"
             value="8"
             min="1"
+            required
           />
         </div>
         <div class="mb-3">
@@ -68,10 +70,11 @@
             id="overhead"
             value="10"
             min="0"
+            required
           />
           <small class="form-text text-muted"
             >Non-task hours per developer (e.g., meetings, emails, admin work)
-            during the sprint.</small
+            during the sprint (will be applied before Buffer Percentage).</small
           >
         </div>
         <div class="mb-3">
@@ -82,6 +85,7 @@
             id="holidays"
             value="1"
             min="0"
+            required
           />
           <small class="form-text text-muted"
             >Company-wide holidays affecting all developers.</small
@@ -96,10 +100,11 @@
             value="15"
             min="0"
             max="100"
+            required
           />
           <small class="form-text text-muted"
             >Percentage of sprint hours added as contingency for delays or
-            unexpected tasks.</small
+            unexpected tasks (will be applied after Overhead Hours).</small
           >
         </div>
         <div class="mb-3">
@@ -111,6 +116,7 @@
             class="form-control"
             id="developers"
             value="Jim, Jerry, Alice, Bob"
+            required
           />
         </div>
         <div class="mb-3">
@@ -127,7 +133,63 @@
             Alice: 2, Bob: 1, Charlie: 0).</small
           >
         </div>
+        <div class="mb-3">
+          <label for="shortHours" class="form-label"
+            >Hours for Short Tasks</label
+          >
+          <input
+            type="number"
+            class="form-control"
+            id="shortHours"
+            value="2"
+            min="0"
+            step="any"
+            required
+          />
+          <small class="form-text text-muted"
+            >Hours assigned to tasks voted as Short.</small
+          >
+        </div>
+        <div class="mb-3">
+          <label for="mediumHours" class="form-label"
+            >Hours for Medium Tasks</label
+          >
+          <input
+            type="number"
+            class="form-control"
+            id="mediumHours"
+            value="4.5"
+            min="0"
+            step="any"
+            required
+          />
+          <small class="form-text text-muted"
+            >Hours assigned to tasks voted as Medium.</small
+          >
+        </div>
+        <div class="mb-3">
+          <label for="longHours" class="form-label">Hours for Long Tasks</label>
+          <input
+            type="number"
+            class="form-control"
+            id="longHours"
+            value="9"
+            min="0"
+            step="any"
+            required
+          />
+          <small class="form-text text-muted"
+            >Hours assigned to tasks voted as Long.</small
+          >
+        </div>
         <button type="submit" class="btn btn-primary">Save Setup</button>
+        <button
+          type="button"
+          class="btn btn-danger ms-2"
+          onclick="localStorage.clear(); location.reload();"
+        >
+          Reset All Data
+        </button>
       </form>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

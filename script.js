@@ -1,12 +1,19 @@
 // Data storage
-let sprintConfig = JSON.parse(localStorage.getItem('sprintConfig')) || {
+const defaultConfig = {
   days: 10,
   hoursPerDay: 8,
   overhead: 10,
   holidays: 1,
   buffer: 15,
   developers: ['Jim', 'Jerry', 'Alice', 'Bob'],
-  personalDaysOff: {}, // e.g., { "Alice": 2, "Bob": 1 }
+  personalDaysOff: {},
+  shortHours: 2,
+  mediumHours: 4.5,
+  longHours: 9,
+};
+let sprintConfig = {
+  ...defaultConfig,
+  ...(JSON.parse(localStorage.getItem('sprintConfig')) || {}),
 };
 let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
 let votes = JSON.parse(localStorage.getItem('votes')) || {};
@@ -25,7 +32,12 @@ function saveData() {
     localStorage.setItem('assignments', JSON.stringify(assignments));
     console.log('Data saved to LocalStorage:', {
       sprintConfig,
-      tasks,
+      tasks: tasks.map((t) => ({
+        id: t.id,
+        description: t.description,
+        hours: t.hours,
+        timeColor: t.timeColor,
+      })),
       votes,
       assignments,
     });
@@ -39,19 +51,15 @@ function saveData() {
 function calculateTargetHours(developer) {
   const days = parseInt(sprintConfig.days) || 10;
   const hoursPerDay = parseInt(sprintConfig.hoursPerDay) || 8;
-  const overhead = parseInt(sprintConfig.overhead) || 0; // Allow 0
-  const holidays = parseInt(sprintConfig.holidays) || 0; // Allow 0
-  const buffer = parseInt(sprintConfig.buffer) || 0; // Allow 0
+  const overhead = parseInt(sprintConfig.overhead) || 0;
+  const holidays = parseInt(sprintConfig.holidays) || 0;
+  const buffer = parseInt(sprintConfig.buffer) || 0;
   const personalDaysOff = sprintConfig.personalDaysOff[developer] || 0;
 
-  // Calculate available days
   const availableDays = days - holidays - personalDaysOff;
-
-  // Calculate total hours (excluding overhead and buffer)
   let targetHours = availableDays * hoursPerDay - overhead;
-
-  // Apply buffer
   targetHours = targetHours * (1 - buffer / 100);
+  targetHours = Number(targetHours.toFixed(2)); // Round to 2 decimal places
 
   return Math.max(0, targetHours);
 }
@@ -116,18 +124,62 @@ function updateTaskCalculations() {
       capAvg <= 1.49 ? 'Trivial' : capAvg <= 2.49 ? 'Optimal' : 'Challenging';
     const timeColor =
       timeAvg <= 1.49 ? 'Short' : timeAvg <= 2.49 ? 'Medium' : 'Long';
-    const hours = timeColor === 'Short' ? 2 : timeColor === 'Medium' ? 4.5 : 9;
+    const hours =
+      timeColor === 'Short'
+        ? sprintConfig.shortHours
+        : timeColor === 'Medium'
+        ? sprintConfig.mediumHours
+        : timeColor === 'Long'
+        ? sprintConfig.longHours
+        : 0;
 
-    // Update task properties
+    // Round hours to 2 decimal places
+    const roundedHours = Number(hours.toFixed(2));
+
+    // Validate task.hours
+    if (task.hours !== roundedHours) {
+      console.warn(
+        `Task ${task.id} hours mismatch: stored=${task.hours}, expected=${roundedHours} (${timeColor})`
+      );
+      task.hours = roundedHours;
+    }
+
     task.capAvg = capAvg;
     task.timeAvg = timeAvg;
     task.capColor = capColor;
     task.timeColor = timeColor;
-    task.hours = hours;
     task.composite = composite;
   });
 
-  saveData(); // Save updated tasks
+  saveData();
+  console.log(
+    'Tasks updated with new hours:',
+    tasks.map((t) => ({
+      id: t.id,
+      description: t.description,
+      hours: t.hours.toFixed(2),
+      timeColor: t.timeColor,
+    }))
+  );
+}
+
+// Debug function to inspect tasks and assignments
+function debugData() {
+  console.log('Debug Data:');
+  console.log('sprintConfig:', sprintConfig);
+  console.log(
+    'Tasks:',
+    tasks.map((t) => ({
+      id: t.id,
+      description: t.description,
+      hours: t.hours.toFixed(2),
+      timeColor: t.timeColor,
+      capAvg: t.capAvg,
+      timeAvg: t.timeAvg,
+    }))
+  );
+  console.log('Assignments:', assignments);
+  console.log('Votes:', votes);
 }
 
 // Setup
@@ -145,6 +197,29 @@ document.getElementById('setupForm')?.addEventListener('submit', (e) => {
       }
     });
   }
+  const shortHours = !isNaN(
+    parseFloat(document.getElementById('shortHours').value)
+  )
+    ? parseFloat(document.getElementById('shortHours').value)
+    : sprintConfig.shortHours;
+  const mediumHours = !isNaN(
+    parseFloat(document.getElementById('mediumHours').value)
+  )
+    ? parseFloat(document.getElementById('mediumHours').value)
+    : sprintConfig.mediumHours;
+  const longHours = !isNaN(
+    parseFloat(document.getElementById('longHours').value)
+  )
+    ? parseFloat(document.getElementById('longHours').value)
+    : sprintConfig.longHours;
+
+  // Validate hours ordering
+  if (shortHours > mediumHours || mediumHours > longHours) {
+    alert('Hours must satisfy: Short ≤ Medium ≤ Long');
+    e.preventDefault();
+    return;
+  }
+
   const newConfig = {
     days: !isNaN(parseInt(document.getElementById('days').value))
       ? parseInt(document.getElementById('days').value)
@@ -168,29 +243,46 @@ document.getElementById('setupForm')?.addEventListener('submit', (e) => {
         .map((name) => name.trim())
         .filter((name) => name) || sprintConfig.developers,
     personalDaysOff,
+    shortHours,
+    mediumHours,
+    longHours,
   };
   sprintConfig = newConfig;
   saveData();
   alert('Setup saved!');
   loadSetup();
+  updateTaskCalculations();
+  debugData();
 });
 
 // Load setup data
 function loadSetup() {
   const form = document.getElementById('setupForm');
   if (form) {
-    document.getElementById('days').value = sprintConfig.days;
-    document.getElementById('hoursPerDay').value = sprintConfig.hoursPerDay;
-    document.getElementById('overhead').value = sprintConfig.overhead;
-    document.getElementById('holidays').value = sprintConfig.holidays;
-    document.getElementById('buffer').value = sprintConfig.buffer;
+    document.getElementById('days').value =
+      sprintConfig.days ?? defaultConfig.days;
+    document.getElementById('hoursPerDay').value =
+      sprintConfig.hoursPerDay ?? defaultConfig.hoursPerDay;
+    document.getElementById('overhead').value =
+      sprintConfig.overhead ?? defaultConfig.overhead;
+    document.getElementById('holidays').value =
+      sprintConfig.holidays ?? defaultConfig.holidays;
+    document.getElementById('buffer').value =
+      sprintConfig.buffer ?? defaultConfig.buffer;
     document.getElementById('developers').value =
-      sprintConfig.developers.join(', ');
+      sprintConfig.developers?.join(', ') ??
+      defaultConfig.developers.join(', ');
     document.getElementById('personalDaysOff').value = Object.entries(
-      sprintConfig.personalDaysOff
+      sprintConfig.personalDaysOff ?? {}
     )
       .map(([name, days]) => `${name}: ${days}`)
       .join(', ');
+    document.getElementById('shortHours').value =
+      sprintConfig.shortHours ?? defaultConfig.shortHours;
+    document.getElementById('mediumHours').value =
+      sprintConfig.mediumHours ?? defaultConfig.mediumHours;
+    document.getElementById('longHours').value =
+      sprintConfig.longHours ?? defaultConfig.longHours;
     console.log('Setup loaded:', sprintConfig);
   }
 }
@@ -236,7 +328,7 @@ function renderVotingTable() {
   headerRow.innerHTML =
     '<th>Task #</th><th>Description</th>' +
     sprintConfig.developers
-      .map((dev) => `<th>${dev} Capability</th><th>${dev} Time</th>`) // Changed "Cap" to "Capability"
+      .map((dev) => `<th>${dev} Capability</th><th>${dev} Time</th>`)
       .join('') +
     '<th>Actions</th>';
   head.appendChild(headerRow);
@@ -286,15 +378,14 @@ function renderVotingTable() {
   });
 
   document.querySelectorAll('.cap, .time').forEach((select) => {
-    // Set initial color based on selected value
     updateSelectColor(select);
     select.addEventListener('change', (e) => {
       votes[
         `${e.target.dataset.task}-${e.target.dataset.dev}-${e.target.dataset.type}`
       ] = e.target.value;
       saveData();
-      updateTaskCalculations(); // Update task calculations on vote change
-      updateSelectColor(e.target); // Update color on change
+      updateTaskCalculations();
+      updateSelectColor(e.target);
       console.log('Vote updated:', votes);
     });
   });
@@ -330,7 +421,7 @@ function updateSelectColor(select) {
 
 function saveVotes() {
   saveData();
-  updateTaskCalculations(); // Ensure task calculations are updated
+  updateTaskCalculations();
   alert('Votes saved!');
   renderVotingTable();
 }
@@ -369,7 +460,7 @@ function renderTasksTable() {
               task.timeColor ? task.timeColor.toLowerCase() : ''
             }" style="font-weight: bold;">${task.timeColor || ''}</td>
             <td>${task.composite ? task.composite.toFixed(2) : '0.00'}</td>
-            <td>${task.hours || 0}</td>`;
+            <td>${task.hours ? task.hours.toFixed(2) : '0.00'}</td>`;
     table.appendChild(row);
   });
 }
@@ -404,19 +495,17 @@ function renderAssignmentsTable() {
             }" style="font-weight: bold;">${task.capColor || ''}</td>
             <td class="${
               task.timeColor ? task.timeColor.toLowerCase() : ''
-            }" style="font-weight: bold;">${task.timeColor || ''}</td>`;
+            }" style="font-weight: bold;">${task.timeColor || ''}</td>
+            <td>${task.hours ? task.hours.toFixed(2) : '0.00'}</td>`;
     table.appendChild(row);
   });
 
   document.querySelectorAll('.assign').forEach((select) => {
-    // Set initial color based on selected value
     select.style.color = select.value === '' ? '#dc3545' : 'black';
     select.addEventListener('change', (e) => {
       const taskId = e.target.dataset.task;
       const value = e.target.value;
-      // Update select color
       e.target.style.color = value === '' ? '#dc3545' : 'black';
-      // Update assignments
       if (value) {
         assignments[taskId] = value;
       } else {
@@ -428,6 +517,7 @@ function renderAssignmentsTable() {
     });
   });
 
+  updateTaskCalculations();
   renderSummaryTable();
 }
 
@@ -435,9 +525,9 @@ function renderSummaryTable() {
   const table = document.getElementById('summaryTable');
   if (!table) return;
   table.innerHTML = '';
-  const teamRow = { tasks: 0, capPoints: 0, hours: 0, targetHours: 0 };
+  const teamRow = { tasks: 0, hours: 0, targetHours: 0 };
+  const teamCapData = [];
 
-  // Collect data for charts
   const capData = [];
   const hoursData = [];
   const targetHoursData = [];
@@ -447,18 +537,17 @@ function renderSummaryTable() {
       .filter((id) => assignments[id] === dev)
       .map((id) => tasks.find((t) => t.id == id))
       .filter((task) => task);
-    const capPoints = devTasks
-      .map((task) => {
-        return task.capAvg <= 1.49 ? 1 : task.capAvg <= 2.49 ? 2 : 3;
-      })
-      .reduce((a, b) => a + b, 0);
-    const hours = devTasks.map((task) => task.hours).reduce((a, b) => a + b, 0);
+    const hours = Number(
+      devTasks.reduce((sum, task) => sum + (task.hours || 0), 0).toFixed(2)
+    );
+    const capPoints = devTasks.reduce((sum, task) => {
+      return sum + (task.capAvg <= 1.49 ? 1 : task.capAvg <= 2.49 ? 2 : 3);
+    }, 0);
     const capAvg = devTasks.length ? capPoints / devTasks.length : 0;
     const targetHours = calculateTargetHours(dev);
     const hoursPercentage = targetHours > 0 ? (hours / targetHours) * 100 : 0;
     const statusValue = capAvg * (hours / (targetHours > 0 ? targetHours : 1));
 
-    // Status logic
     let status = '';
     let statusColor = '';
     if (hoursPercentage > 100) {
@@ -480,7 +569,7 @@ function renderSummaryTable() {
             <td>${dev}</td>
             <td>${devTasks.length}</td>
             <td>${capAvg.toFixed(2)}</td>
-            <td>${Math.floor(hours)}/${Math.floor(targetHours)}</td>
+            <td>${hours.toFixed(2)}/${targetHours.toFixed(2)}</td>
             <td class="${statusColor}" style="font-weight: bold; color: ${
       statusColor === 'below-capacity'
         ? '#d39e00'
@@ -492,18 +581,41 @@ function renderSummaryTable() {
 
     // Accumulate team totals
     teamRow.tasks += devTasks.length;
-    teamRow.capPoints += capPoints;
     teamRow.hours += hours;
     teamRow.targetHours += targetHours;
+    if (devTasks.length) {
+      teamCapData.push({ capAvg, taskCount: devTasks.length });
+    }
 
     // Collect chart data
     capData.push(capAvg);
     hoursData.push(hours);
     targetHoursData.push(targetHours);
+
+    // Detailed logging
+    console.log(
+      `Developer ${dev}: tasks=${devTasks.length}, capAvg=${capAvg.toFixed(
+        2
+      )}, hours=${hours.toFixed(2)}, targetHours=${targetHours.toFixed(
+        2
+      )}, taskDetails=[${devTasks
+        .map((t) => `Task ${t.id}: ${t.hours.toFixed(2)}h (${t.timeColor})`)
+        .join(', ')}]`
+    );
   });
 
-  // Team row
-  const teamCapAvg = teamRow.tasks ? teamRow.capPoints / teamRow.tasks : 0;
+  // Calculate team capability average (weighted by task count)
+  const totalTasks = teamCapData.reduce(
+    (sum, { taskCount }) => sum + taskCount,
+    0
+  );
+  const teamCapAvg = totalTasks
+    ? teamCapData.reduce(
+        (sum, { capAvg, taskCount }) => sum + capAvg * taskCount,
+        0
+      ) / totalTasks
+    : 0;
+
   const teamHoursPercentage =
     teamRow.targetHours > 0 ? (teamRow.hours / teamRow.targetHours) * 100 : 0;
   const teamStatusValue =
@@ -530,7 +642,7 @@ function renderSummaryTable() {
         <td><strong>Team</strong></td>
         <td>${teamRow.tasks}</td>
         <td>${teamCapAvg.toFixed(2)}</td>
-        <td>${Math.floor(teamRow.hours)}/${Math.floor(teamRow.targetHours)}</td>
+        <td>${teamRow.hours.toFixed(2)}/${teamRow.targetHours.toFixed(2)}</td>
         <td class="${teamStatusColor}" style="font-weight: bold; color: ${
     teamStatusColor === 'below-capacity'
       ? '#d39e00'
@@ -540,7 +652,15 @@ function renderSummaryTable() {
   };">${teamStatus}</td>`;
   table.appendChild(teamRowEl);
 
-  // Render charts
+  console.log(
+    `Team: tasks=${teamRow.tasks}, capAvg=${teamCapAvg.toFixed(
+      2
+    )}, hours=${teamRow.hours.toFixed(
+      2
+    )}, targetHours=${teamRow.targetHours.toFixed(2)}`
+  );
+  console.log('Team capability data:', teamCapData);
+
   renderCharts(capData, hoursData, targetHoursData);
 }
 
@@ -552,7 +672,6 @@ function renderCharts(capData, hoursData, targetHoursData) {
   }
 
   try {
-    // Destroy existing chart instances
     if (capChartInstance) {
       capChartInstance.destroy();
       capChartInstance = null;
@@ -562,7 +681,6 @@ function renderCharts(capData, hoursData, targetHoursData) {
       hoursChartInstance = null;
     }
 
-    // Capability Chart
     capChartInstance = new Chart(document.getElementById('capChart'), {
       type: 'bar',
       data: {
@@ -580,12 +698,11 @@ function renderCharts(capData, hoursData, targetHoursData) {
       options: { scales: { y: { beginAtZero: true, max: 3 } } },
     });
 
-    // Hours Chart
     hoursChartInstance = new Chart(document.getElementById('hoursChart'), {
       type: 'bar',
       data: {
         labels: sprintConfig.developers.map(
-          (dev, i) => `${dev} (${Math.floor(targetHoursData[i])}h)`
+          (dev, i) => `${dev} (${targetHoursData[i].toFixed(2)}h)`
         ),
         datasets: [
           {
@@ -597,7 +714,7 @@ function renderCharts(capData, hoursData, targetHoursData) {
               return percentage < 80
                 ? '#fff3cd'
                 : percentage <= 100
-                ? '#d4edda'
+                ? '# Angels'
                 : '#f8d7da';
             }),
           },
@@ -617,7 +734,6 @@ function saveAssignments() {
   renderAssignmentsTable();
 }
 
-// Function to set active navbar link
 function setActiveNav() {
   const currentPage = window.location.pathname.split('/').pop() || 'index.html';
   document.querySelectorAll('.navbar-nav .nav-link').forEach((link) => {
@@ -628,7 +744,6 @@ function setActiveNav() {
   });
 }
 
-// Initialize pages
 document.addEventListener('DOMContentLoaded', () => {
   console.log('Page loaded, initializing...');
   console.log('LocalStorage contents:', {
@@ -640,6 +755,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('setupForm')) loadSetup();
   if (document.getElementById('votingTable')) renderVotingTable();
   if (document.getElementById('tasksTable')) renderTasksTable();
-  if (document.getElementById('assignmentsTable')) renderAssignmentsTable();
+  if (document.getElementById('assignmentsTable')) {
+    updateTaskCalculations();
+    renderAssignmentsTable();
+  }
   setActiveNav();
 });
