@@ -2,9 +2,9 @@
 const defaultConfig = {
   days: 10,
   hoursPerDay: 8,
-  overhead: 10,
-  holidays: 1,
-  buffer: 15,
+  overhead: 5,
+  holidays: 0,
+  buffer: 10,
   developers: ['Jim', 'Jerry', 'Alice', 'Bob'],
   personalDaysOff: {},
 };
