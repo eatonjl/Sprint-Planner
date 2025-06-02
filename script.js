@@ -703,6 +703,103 @@ function saveAssignments() {
   renderAssignmentsTable();
 }
 
+function clearAssignments() {
+  if (confirm('Are you sure you want to clear all assignments?')) {
+    assignments = {};
+    saveData();
+    alert('All assignments cleared!');
+    renderAssignmentsTable();
+  }
+}
+
+function automaticAssignment() {
+  // Clear existing assignments
+  assignments = {};
+
+  // Calculate target hours for each developer
+  const developerTargets = sprintConfig.developers.map((dev) => ({
+    name: dev,
+    targetHours: calculateTargetHours(dev),
+    assignedHours: 0,
+    assignedTasks: [],
+    capSum: 0,
+  }));
+
+  // Create a list of tasks with their properties
+  const taskList = tasks.map((task) => ({
+    id: task.id,
+    capAvg: task.capAvg || 0,
+    hours: task.hours || 0,
+  }));
+
+  // Sort tasks by capAvg (ascending) to prioritize tasks closer to 2.00
+  taskList.sort((a, b) => Math.abs(a.capAvg - 2) - Math.abs(b.capAvg - 2));
+
+  // Assign tasks to developers
+  taskList.forEach((task) => {
+    // Find the best developer for this task
+    let bestDev = null;
+    let bestScore = Infinity;
+
+    developerTargets.forEach((dev) => {
+      // Skip if adding this task would exceed target hours
+      if (dev.assignedHours + task.hours > dev.targetHours) {
+        return;
+      }
+
+      // Calculate current capability average
+      const currentCapAvg = dev.assignedTasks.length
+        ? dev.capSum / dev.assignedTasks.length
+        : 0;
+
+      // Score based on how close the new capability average would be to 2.00
+      const newCapSum = dev.capSum + task.capAvg;
+      const newTaskCount = dev.assignedTasks.length + 1;
+      const newCapAvg = newCapSum / newTaskCount;
+      const capScore = Math.abs(newCapAvg - 2);
+
+      // Score based on how close to 100% target hours
+      const newHours = dev.assignedHours + task.hours;
+      const hoursScore =
+        dev.targetHours > 0 ? Math.abs(newHours / dev.targetHours - 1) : 0;
+
+      // Combined score (weight capability and hours equally)
+      const score = capScore + hoursScore;
+
+      if (score < bestScore) {
+        bestScore = score;
+        bestDev = dev;
+      }
+    });
+
+    // Assign the task to the best developer if found
+    if (bestDev) {
+      assignments[task.id] = bestDev.name;
+      bestDev.assignedHours += task.hours;
+      bestDev.assignedTasks.push(task);
+      bestDev.capSum += task.capAvg;
+    }
+  });
+
+  // Save and update UI
+  saveData();
+  alert('Automatic assignments completed!');
+  renderAssignmentsTable();
+
+  // Log assignment results for debugging
+  console.log('Automatic Assignment Results:');
+  developerTargets.forEach((dev) => {
+    const capAvg = dev.assignedTasks.length
+      ? dev.capSum / dev.assignedTasks.length
+      : 0;
+    console.log(
+      `Developer ${dev.name}: ${dev.assignedTasks.length} tasks, ` +
+        `Cap Avg: ${capAvg.toFixed(2)}, ` +
+        `Hours: ${dev.assignedHours.toFixed(2)}/${dev.targetHours.toFixed(2)}`
+    );
+  });
+}
+
 function setActiveNav() {
   const currentPage = window.location.pathname.split('/').pop() || 'index.html';
   document.querySelectorAll('.navbar-nav .nav-link').forEach((link) => {
