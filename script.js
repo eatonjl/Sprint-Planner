@@ -56,20 +56,6 @@ function calculateTargetHours(developer) {
   let targetHours = availableDays * hoursPerDay * (1 - buffer / 100) - overhead;
   targetHours = Number(targetHours.toFixed(2));
 
-  console.log(`calculateTargetHours for ${developer}:`);
-  console.log(
-    `  days=${days}, hoursPerDay=${hoursPerDay}, overhead=${overhead}, holidays=${holidays}, buffer=${buffer}, personalDaysOff=${personalDaysOff}`
-  );
-  console.log(`  availableDays=${availableDays}`);
-  console.log(
-    `  hoursBeforeOverhead=${(
-      availableDays *
-      hoursPerDay *
-      (1 - buffer / 100)
-    ).toFixed(2)}`
-  );
-  console.log(`  finalTargetHours=${targetHours}`);
-
   return Math.max(0, targetHours);
 }
 
@@ -657,8 +643,8 @@ function renderCharts(capData, hoursData, targetHoursData) {
           {
             label: 'Capability Average',
             data: capData,
-            backgroundColor: capData.map((v) =>
-              v < 1.5 ? '#fff3cd' : v <= 2.49 ? '#d4edda' : '#f8d7da'
+            backgroundColor: capData.map((t) =>
+              t < 1.5 ? '#fff3cd' : t <= 2.49 ? '#d4e4da' : '#f8d7da'
             ),
           },
         ],
@@ -666,7 +652,6 @@ function renderCharts(capData, hoursData, targetHoursData) {
       options: { scales: { y: { beginAtZero: true, max: 3 } } },
     });
 
-    // Calculate percentage data for hours chart
     const percentageData = hoursData.map((hours, i) => {
       const target = targetHoursData[i];
       return target > 0 ? (hours / target) * 100 : 0;
@@ -697,7 +682,7 @@ function renderCharts(capData, hoursData, targetHoursData) {
         scales: {
           y: {
             beginAtZero: true,
-            max: 120, // Allow some headroom above 100%
+            max: 120,
             title: {
               display: true,
               text: 'Percentage of Target Hours',
@@ -740,35 +725,59 @@ function clearAssignments() {
   if (confirm('Are you sure you want to clear all assignments?')) {
     assignments = {};
     saveData();
-    alert('All assignments cleared.');
+    alert('All assignments cleared!');
     renderAssignmentsTable();
   }
 }
 
 function automaticAssignment() {
-  // Clear existing assignments
-  assignments = {};
+  // Do NOT clear existing assignments to preserve manual assignments
+  console.log(
+    'Starting automatic assignment with existing assignments:',
+    assignments
+  );
 
-  // Calculate target hours for each developer
-  const developerTargets = sprintConfig.developers.map((dev) => ({
-    name: dev,
-    targetHours: calculateTargetHours(dev),
-    assignedHours: 0,
-    assignedTasks: [],
-    capSum: 0,
-  }));
+  // Initialize developer state with existing assignments
+  const developerTargets = sprintConfig.developers.map((dev) => {
+    // Find tasks already assigned to this developer
+    const assignedTasks = Object.entries(assignments)
+      .filter(([_, assignedDev]) => assignedDev === dev)
+      .map(([taskId]) => tasks.find((task) => task.id === parseInt(taskId)))
+      .filter((task) => task); // Ensure task exists
+    const assignedHours = assignedTasks.reduce(
+      (sum, task) => sum + (task.hours || 0),
+      0
+    );
+    const capSum = assignedTasks.reduce(
+      (sum, task) => sum + (task.capAvg || 0),
+      0
+    );
 
-  // Create a list of tasks with their properties
-  const taskList = tasks.map((task) => ({
-    id: task.id,
-    capAvg: task.capAvg || 0,
-    hours: task.hours || 0,
-  }));
+    return {
+      name: dev,
+      targetHours: calculateTargetHours(dev),
+      assignedHours: assignedHours,
+      assignedTasks: assignedTasks,
+      capSum: capSum,
+    };
+  });
+
+  // Create a list of unassigned tasks
+  const taskList = tasks
+    .filter((task) => !assignments[task.id]) // Only include tasks not already assigned
+    .map((task) => ({
+      id: task.id,
+      capAvg: task.capAvg || 0,
+      hours: task.hours || 0,
+    }));
 
   // Sort tasks by capAvg (ascending) to prioritize tasks closest to 2.00
   taskList.sort((a, b) => Math.abs(a.capAvg - 2) - Math.abs(b.capAvg - 2));
 
-  // Assign tasks to developers
+  console.log('Unassigned tasks to process:', taskList);
+  console.log('Initial developer targets:', developerTargets);
+
+  // Assign unassigned tasks to developers
   taskList.forEach((task) => {
     // Find the best developer for this task
     let bestDev = null;
@@ -796,7 +805,7 @@ function automaticAssignment() {
       const hoursScore =
         dev.targetHours > 0 ? Math.abs(newHours / dev.targetHours - 1) : 0;
 
-      // Combined score (weight capability and hours equally)
+      // Combined score (weight capabilityolen hours equally)
       const score = capScore + hoursScore;
 
       if (score < bestScore) {
@@ -811,12 +820,19 @@ function automaticAssignment() {
       bestDev.assignedHours += task.hours;
       bestDev.assignedTasks.push(task);
       bestDev.capSum += task.capAvg;
+      console.log(
+        `Assigned task ${task.id} to ${bestDev.name}, score: ${bestScore}`
+      );
+    } else {
+      console.log(
+        `Task ${task.id} could not be assigned (no suitable developer).`
+      );
     }
   });
 
   // Save and update UI
   saveData();
-  alert('Automatic assignments completed!');
+  alert('Automatic assignments completed, manual assignments preserved!');
   renderAssignmentsTable();
 
   // Log assignment results for debugging
@@ -828,19 +844,21 @@ function automaticAssignment() {
     console.log(
       `Developer ${dev.name}: ${dev.assignedTasks.length} tasks, ` +
         `Cap Avg: ${capAvg.toFixed(2)}, ` +
-        `Hours: ${dev.assignedHours.toFixed(2)}/${dev.targetHours.toFixed(2)}`
+        `Hours: ${dev.assignedHours.toFixed(2)}/${dev.targetHours.toFixed(
+          2
+        )}, ` +
+        `Tasks=[${dev.assignedTasks
+          .map((t) => `Task ${t.id}: ${t.hours.toFixed(2)}h`)
+          .join(', ')}]`
     );
   });
 }
 
-// New function to render the Summary page
+// Render summary page
 function renderSummaryPage() {
   const assignedTasksDiv = document.getElementById('assignedTasks');
   const unassignedTasksBody = document.getElementById('unassignedTasks');
-  if (!assignedTasksDiv || !unassignedTasksBody) {
-    console.warn('Summary page elements not found.');
-    return;
-  }
+  if (!assignedTasksDiv || !unassignedTasksBody) return;
 
   console.log(
     'Rendering summary page with tasks:',
