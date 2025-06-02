@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sprint Planning Tool</title>
+    <title>Summary - Sprint Planner</title>
+    <link rel="stylesheet" href="styles.css" />
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -28,7 +28,7 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav">
             <li class="nav-item">
-              <a class="nav-link active" href="index.html">Home</a>
+              <a class="nav-link" href="index.html">Home</a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="setup.html">Setup</a>
@@ -40,19 +40,33 @@
               <a class="nav-link" href="assignments.html">Assignments</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="summary.html">Summary</a>
+              <a class="nav-link active" href="summary.html">Summary</a>
             </li>
           </ul>
         </div>
       </div>
     </nav>
+
     <div class="container mt-4">
-      <h1>Welcome to Sprint Planning</h1>
-      <p>
-        Use this tool to estimate and assign tasks for your sprint. Start with
-        Setup to configure your team and sprint.
-      </p>
+      <h1>Task Summary</h1>
+      <h2>Assigned Tasks by Developer</h2>
+      <div id="assignedTasks"></div>
+      <h2>Unassigned Tasks</h2>
+      <div class="table-responsive">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Task ID</th>
+              <th>Description</th>
+              <th>Capability</th>
+              <th>Hours</th>
+            </tr>
+          </thead>
+          <tbody id="unassignedTasks"></tbody>
+        </table>
+      </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
   </body>

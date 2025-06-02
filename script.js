@@ -53,7 +53,6 @@ function calculateTargetHours(developer) {
   const personalDaysOff = sprintConfig.personalDaysOff[developer] || 0;
 
   const availableDays = days - holidays - personalDaysOff;
-  // Apply buffer before overhead to yield 58 hours
   let targetHours = availableDays * hoursPerDay * (1 - buffer / 100) - overhead;
   targetHours = Number(targetHours.toFixed(2));
 
@@ -437,7 +436,7 @@ function renderTasksTable() {
 function renderAssignmentsTable() {
   const tbody = document.getElementById('assignmentsTable');
   if (!tbody) return;
-  tbody.innerHTML = ''; // Clear only the <tbody> content, preserving the <thead>
+  tbody.innerHTML = '';
   tasks.forEach((task) => {
     const row = document.createElement('tr');
     row.innerHTML = `
@@ -560,11 +559,11 @@ function renderSummaryTable() {
     targetHoursData.push(targetHours);
 
     console.log(
-      `Developer ${dev}: tasks=${devTasks.length}, capAvg=${capAvg.toFixed(
+      `Developer: ${dev}: tasks=${devTasks.length}, capAvg=${capAvg.toFixed(
         2
       )}, hours=${hours.toFixed(2)}, targetHours=${targetHours.toFixed(
         2
-      )}, taskDetails=[${devTasks
+      )}, tasks=[${devTasks
         .map((t) => `Task ${t.id}: ${t.hours.toFixed(2)}h`)
         .join(', ')}]`
     );
@@ -619,7 +618,7 @@ function renderSummaryTable() {
       : teamStatusColor === 'at-capacity'
       ? '#28a745'
       : '#dc3545'
-  };">${teamStatus}</td>`;
+  }">${teamStatus}</td>`;
   table.appendChild(teamRowEl);
 
   console.log(
@@ -636,7 +635,7 @@ function renderSummaryTable() {
 function renderCharts(capData, hoursData, targetHoursData) {
   if (!window.Chart) {
     console.error('Chart.js not loaded.');
-    alert('Charts failed to load. Please check your internet connection.');
+    alert('Chart.js failed to load. Please check your Internet connection.');
     return;
   }
 
@@ -741,7 +740,7 @@ function clearAssignments() {
   if (confirm('Are you sure you want to clear all assignments?')) {
     assignments = {};
     saveData();
-    alert('All assignments cleared!');
+    alert('All assignments cleared.');
     renderAssignmentsTable();
   }
 }
@@ -766,7 +765,7 @@ function automaticAssignment() {
     hours: task.hours || 0,
   }));
 
-  // Sort tasks by capAvg (ascending) to prioritize tasks closer to 2.00
+  // Sort tasks by capAvg (ascending) to prioritize tasks closest to 2.00
   taskList.sort((a, b) => Math.abs(a.capAvg - 2) - Math.abs(b.capAvg - 2));
 
   // Assign tasks to developers
@@ -834,6 +833,113 @@ function automaticAssignment() {
   });
 }
 
+// New function to render the Summary page
+function renderSummaryPage() {
+  const assignedTasksDiv = document.getElementById('assignedTasks');
+  const unassignedTasksBody = document.getElementById('unassignedTasks');
+  if (!assignedTasksDiv || !unassignedTasksBody) {
+    console.warn('Summary page elements not found.');
+    return;
+  }
+
+  console.log(
+    'Rendering summary page with tasks:',
+    tasks,
+    'and assignments:',
+    assignments
+  );
+
+  // Clear existing content
+  assignedTasksDiv.innerHTML = '';
+  unassignedTasksBody.innerHTML = '';
+
+  // Group tasks by developer
+  const tasksByDeveloper = {};
+  sprintConfig.developers.forEach((dev) => {
+    tasksByDeveloper[dev] = [];
+  });
+
+  // Categorize tasks as assigned or unassigned
+  const unassignedTasks = [];
+  tasks.forEach((task) => {
+    const dev = assignments[task.id];
+    if (dev && sprintConfig.developers.includes(dev)) {
+      tasksByDeveloper[dev].push(task);
+    } else {
+      unassignedTasks.push(task);
+    }
+  });
+
+  // Render assigned tasks by developer
+  sprintConfig.developers.forEach((dev) => {
+    const devTasks = tasksByDeveloper[dev];
+    if (devTasks.length === 0) return; // Skip developers with no tasks
+
+    const devSection = document.createElement('div');
+    devSection.className = 'mb-4';
+    devSection.innerHTML = `<h3>${dev}</h3>`;
+    const table = document.createElement('table');
+    table.className = 'table table-bordered';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Task ID</th>
+          <th>Description</th>
+          <th>Capability</th>
+          <th>Hours</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${devTasks
+          .map(
+            (task) => `
+              <tr>
+                <td>${task.id}</td>
+                <td>${task.description}</td>
+                <td class="${
+                  task.capColor ? task.capColor.toLowerCase() : ''
+                }" style="font-weight: bold;">${task.capColor || ''}</td>
+                <td>${task.hours ? task.hours.toFixed(2) : '0.00'}</td>
+              </tr>
+            `
+          )
+          .join('')}
+      </tbody>
+    `;
+    devSection.appendChild(table);
+    assignedTasksDiv.appendChild(devSection);
+  });
+
+  // Render unassigned tasks
+  if (unassignedTasks.length === 0) {
+    unassignedTasksBody.innerHTML =
+      '<tr><td colspan="4" class="text-center">No unassigned tasks.</td></tr>';
+  } else {
+    unassignedTasks.forEach((task) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${task.id}</td>
+        <td>${task.description}</td>
+        <td class="${
+          task.capColor ? task.capColor.toLowerCase() : ''
+        }" style="font-weight: bold;">${task.capColor || ''}</td>
+        <td>${task.hours ? task.hours.toFixed(2) : '0.00'}</td>
+      `;
+      unassignedTasksBody.appendChild(row);
+    });
+  }
+
+  console.log('Summary page rendered:', {
+    tasksByDeveloper,
+    unassignedTasks: unassignedTasks.map((t) => ({
+      id: t.id,
+      description: t.description,
+      hours: t.hours ? t.hours.toFixed(2) : '0.00',
+      capColor: t.capColor,
+    })),
+  });
+}
+
 function setActiveNav() {
   const currentPage = window.location.pathname.split('/').pop() || 'index.html';
   document.querySelectorAll('.navbar-nav .nav-link').forEach((link) => {
@@ -858,6 +964,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('assignmentsTable')) {
     updateTaskCalculations();
     renderAssignmentsTable();
+  }
+  if (
+    document.getElementById('assignedTasks') ||
+    document.getElementById('unassignedTasks')
+  ) {
+    renderSummaryPage();
   }
   setActiveNav();
 });
