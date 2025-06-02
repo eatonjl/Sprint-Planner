@@ -667,6 +667,12 @@ function renderCharts(capData, hoursData, targetHoursData) {
       options: { scales: { y: { beginAtZero: true, max: 3 } } },
     });
 
+    // Calculate percentage data for hours chart
+    const percentageData = hoursData.map((hours, i) => {
+      const target = targetHoursData[i];
+      return target > 0 ? (hours / target) * 100 : 0;
+    });
+
     hoursChartInstance = new Chart(document.getElementById('hoursChart'), {
       type: 'bar',
       data: {
@@ -675,21 +681,49 @@ function renderCharts(capData, hoursData, targetHoursData) {
         ),
         datasets: [
           {
-            label: 'Hours',
-            data: hoursData,
-            backgroundColor: hoursData.map((hours, i) => {
-              const target = targetHoursData[i];
-              const percentage = target > 0 ? (hours / target) * 100 : 0;
-              return percentage < 80
-                ? '#fff3cd'
-                : percentage <= 100
-                ? '#d4edda'
-                : '#f8d7da';
-            }),
+            label: 'Hours (% of Target)',
+            data: percentageData,
+            backgroundColor: percentageData.map(
+              (percentage) =>
+                percentage < 80
+                  ? '#fff3cd' // Yellow for below 80%
+                  : percentage <= 100
+                  ? '#d4edda' // Green for 80-100%
+                  : '#f8d7da' // Red for above 100%
+            ),
           },
         ],
       },
-      options: { scales: { y: { beginAtZero: true } } },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 120, // Allow some headroom above 100%
+            title: {
+              display: true,
+              text: 'Percentage of Target Hours',
+            },
+            ticks: {
+              callback: function (value) {
+                return value + '%';
+              },
+            },
+          },
+        },
+        plugins: {
+          datalabels: {
+            anchor: 'end',
+            align: 'top',
+            formatter: (value) => {
+              return value.toFixed(0) + '%';
+            },
+            color: 'black',
+            font: {
+              weight: 'bold',
+            },
+          },
+        },
+      },
     });
   } catch (error) {
     console.error('Error rendering charts:', error);
