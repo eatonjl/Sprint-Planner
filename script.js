@@ -32,7 +32,7 @@ function saveData() {
       tasks: tasks.map((t) => ({
         id: t.id,
         description: t.description,
-        hours: t.hours,
+        days: t.days,
       })),
       votes,
       assignments,
@@ -43,8 +43,8 @@ function saveData() {
   }
 }
 
-// Calculate target hours per developer
-function calculateTargetHours(developer) {
+// Calculate target days per developer
+function calculateTargetDays(developer) {
   const days = parseInt(sprintConfig.days) || 10;
   const hoursPerDay = parseInt(sprintConfig.hoursPerDay) || 8;
   const overhead = parseInt(sprintConfig.overhead) || 0;
@@ -55,14 +55,13 @@ function calculateTargetHours(developer) {
   const availableDays = days - holidays - personalDaysOff;
   let targetHours = availableDays * hoursPerDay * (1 - buffer / 100) - overhead;
   targetHours = Number(targetHours.toFixed(2));
-
-  return Math.max(0, targetHours);
+  // Convert target hours to days, rounded to nearest 0.5
+  const targetDays = Math.round((targetHours / hoursPerDay) * 2) / 2;
+  return Math.max(0, targetDays);
 }
 
-// Update task calculations (capAvg, hours, etc.) and store in tasks
+// Update task calculations (capAvg, days, etc.) and store in tasks
 function updateTaskCalculations() {
-  const hoursPerDay = parseInt(sprintConfig.hoursPerDay) || 8;
-
   tasks.forEach((task) => {
     const capPoints = sprintConfig.developers
       .map((dev) => {
@@ -76,27 +75,27 @@ function updateTaskCalculations() {
           : 0;
       })
       .filter((v) => v);
-    const timeHours = sprintConfig.developers
+    const timeDays = sprintConfig.developers
       .map((dev) => {
         const val = votes[`${task.id}-${dev}-time`];
         return val === '1/2 Day'
-          ? 0.5 * hoursPerDay
+          ? 0.5
           : val === '1 Day'
-          ? 1 * hoursPerDay
+          ? 1
           : val === '1.5 Days'
-          ? 1.5 * hoursPerDay
+          ? 1.5
           : val === '2.5 Days'
-          ? 2.5 * hoursPerDay
+          ? 2.5
           : val === '4 Days'
-          ? 4 * hoursPerDay
+          ? 4
           : 0;
       })
       .filter((v) => v);
     const capAvg = capPoints.length
       ? capPoints.reduce((a, b) => a + b, 0) / capPoints.length
       : 0;
-    const hours = timeHours.length
-      ? timeHours.reduce((a, b) => a + b, 0) / timeHours.length
+    const days = timeDays.length
+      ? timeDays.reduce((a, b) => a + b, 0) / timeDays.length
       : 0;
     const composite =
       sprintConfig.developers
@@ -128,29 +127,31 @@ function updateTaskCalculations() {
     const capColor =
       capAvg <= 1.49 ? 'Trivial' : capAvg <= 2.49 ? 'Optimal' : 'Challenging';
 
-    // Round hours to 2 decimal places
-    const roundedHours = Number(hours.toFixed(2));
+    // Round days to nearest 0.5
+    const roundedDays = Math.round(days * 2) / 2;
 
-    // Validate task.hours
-    if (task.hours !== roundedHours) {
+    // Validate task.days
+    if (task.days !== roundedDays) {
       console.warn(
-        `Task ${task.id} hours mismatch: stored=${task.hours}, expected=${roundedHours}`
+        `Task ${task.id} days mismatch: stored=${task.days}, expected=${roundedDays}`
       );
-      task.hours = roundedHours;
+      task.days = roundedDays;
     }
 
     task.capAvg = capAvg;
     task.capColor = capColor;
     task.composite = composite;
+    // Remove hours field if it exists
+    delete task.hours;
   });
 
   saveData();
   console.log(
-    'Tasks updated with new hours:',
+    'Tasks updated with new days:',
     tasks.map((t) => ({
       id: t.id,
       description: t.description,
-      hours: t.hours.toFixed(2),
+      days: t.days.toFixed(2),
     }))
   );
 }
@@ -164,7 +165,7 @@ function debugData() {
     tasks.map((t) => ({
       id: t.id,
       description: t.description,
-      hours: t.hours.toFixed(2),
+      days: t.days.toFixed(2),
       capAvg: t.capAvg,
       capColor: t.capColor,
     }))
@@ -406,14 +407,14 @@ function renderTasksTable() {
   tasks.forEach((task) => {
     const row = document.createElement('tr');
     row.innerHTML = `
-            <td>${task.id}</td>
-            <td>${task.description}</td>
-            <td>${task.capAvg ? task.capAvg.toFixed(2) : '0.00'}</td>
-            <td class="${
-              task.capColor ? task.capColor.toLowerCase() : ''
-            }" style="font-weight: bold;">${task.capColor || ''}</td>
-            <td>${task.composite ? task.composite.toFixed(2) : '0.00'}</td>
-            <td>${task.hours ? task.hours.toFixed(2) : '0.00'}</td>`;
+      <td>${task.id}</td>
+      <td>${task.description}</td>
+      <td>${task.capAvg ? task.capAvg.toFixed(2) : '0.00'}</td>
+      <td class="${
+        task.capColor ? task.capColor.toLowerCase() : ''
+      }" style="font-weight: bold;">${task.capColor || ''}</td>
+      <td>${task.composite ? task.composite.toFixed(2) : '0.00'}</td>
+      <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>`;
     table.appendChild(row);
   });
 }
@@ -426,27 +427,27 @@ function renderAssignmentsTable() {
   tasks.forEach((task) => {
     const row = document.createElement('tr');
     row.innerHTML = `
-            <td>${task.id}</td>
-            <td>${task.description}</td>
-            <td>
-              <select class="form-select assign" data-task="${task.id}">
-                <option value="" ${
-                  !assignments[task.id] ? 'selected' : ''
-                }>Select</option>
-                ${sprintConfig.developers
-                  .map(
-                    (dev) =>
-                      `<option value="${dev}" ${
-                        assignments[task.id] === dev ? 'selected' : ''
-                      }>${dev}</option>`
-                  )
-                  .join('')}
-              </select>
-            </td>
-            <td class="${
-              task.capColor ? task.capColor.toLowerCase() : ''
-            }" style="font-weight: bold;">${task.capColor || ''}</td>
-            <td>${task.hours ? task.hours.toFixed(2) : '0.00'}</td>`;
+      <td>${task.id}</td>
+      <td>${task.description}</td>
+      <td>
+        <select class="form-select assign" data-task="${task.id}">
+          <option value="" ${
+            !assignments[task.id] ? 'selected' : ''
+          }>Select</option>
+          ${sprintConfig.developers
+            .map(
+              (dev) =>
+                `<option value="${dev}" ${
+                  assignments[task.id] === dev ? 'selected' : ''
+                }>${dev}</option>`
+            )
+            .join('')}
+        </select>
+      </td>
+      <td class="${
+        task.capColor ? task.capColor.toLowerCase() : ''
+      }" style="font-weight: bold;">${task.capColor || ''}</td>
+      <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>`;
     tbody.appendChild(row);
   });
 
@@ -475,36 +476,36 @@ function renderSummaryTable() {
   const table = document.getElementById('summaryTable');
   if (!table) return;
   table.innerHTML = '';
-  const teamRow = { tasks: 0, hours: 0, targetHours: 0 };
+  const teamRow = { tasks: 0, days: 0, targetDays: 0 };
   const teamCapData = [];
 
   const capData = [];
-  const hoursData = [];
-  const targetHoursData = [];
+  const daysData = [];
+  const targetDaysData = [];
 
   sprintConfig.developers.forEach((dev) => {
     const devTasks = Object.keys(assignments)
       .filter((id) => assignments[id] === dev)
       .map((id) => tasks.find((t) => t.id == id))
       .filter((task) => task);
-    const hours = Number(
-      devTasks.reduce((sum, task) => sum + (task.hours || 0), 0).toFixed(2)
+    const days = Number(
+      devTasks.reduce((sum, task) => sum + (task.days || 0), 0).toFixed(2)
     );
     const capPoints = devTasks.reduce((sum, task) => {
       return sum + (task.capAvg <= 1.49 ? 1 : task.capAvg <= 2.49 ? 2 : 3);
     }, 0);
     const capAvg = devTasks.length ? capPoints / devTasks.length : 0;
-    const targetHours = calculateTargetHours(dev);
-    const hoursPercentage =
-      targetHours > 0 ? ((hours / targetHours) * 100).toFixed(2) : 0;
+    const targetDays = calculateTargetDays(dev);
+    const daysPercentage =
+      targetDays > 0 ? ((days / targetDays) * 100).toFixed(2) : 0;
     const statusValue = (
       capAvg *
-      (hours / (targetHours > 0 ? targetHours : 1))
+      (days / (targetDays > 0 ? targetDays : 1))
     ).toFixed(2);
 
     let status = '';
     let statusColor = '';
-    if (hoursPercentage > 100) {
+    if (daysPercentage > 100) {
       status = 'Above Capacity';
       statusColor = 'above-capacity';
     } else if (statusValue < 1.5) {
@@ -520,11 +521,11 @@ function renderSummaryTable() {
 
     const row = document.createElement('tr');
     row.innerHTML = `
-            <td>${dev}</td>
-            <td>${devTasks.length}</td>
-            <td>${capAvg.toFixed(2)}</td>
-            <td>${hours.toFixed(2)}/${targetHours.toFixed(2)}</td>
-            <td class="${statusColor}" style="font-weight: bold; color: ${
+      <td>${dev}</td>
+      <td>${devTasks.length}</td>
+      <td>${capAvg.toFixed(2)}</td>
+      <td>${days.toFixed(2)}/${targetDays.toFixed(2)}</td>
+      <td class="${statusColor}" style="font-weight: bold; color: ${
       statusColor === 'below-capacity'
         ? '#d39e00'
         : statusColor === 'at-capacity'
@@ -534,23 +535,23 @@ function renderSummaryTable() {
     table.appendChild(row);
 
     teamRow.tasks += devTasks.length;
-    teamRow.hours += hours;
-    teamRow.targetHours += targetHours;
+    teamRow.days += days;
+    teamRow.targetDays += targetDays;
     if (devTasks.length) {
       teamCapData.push({ capAvg, taskCount: devTasks.length });
     }
 
     capData.push(capAvg);
-    hoursData.push(hours);
-    targetHoursData.push(targetHours);
+    daysData.push(days);
+    targetDaysData.push(targetDays);
 
     console.log(
       `Developer: ${dev}: tasks=${devTasks.length}, capAvg=${capAvg.toFixed(
         2
-      )}, hours=${hours.toFixed(2)}, targetHours=${targetHours.toFixed(
+      )}, days=${days.toFixed(2)}, targetDays=${targetDays.toFixed(
         2
       )}, tasks=[${devTasks
-        .map((t) => `Task ${t.id}: ${t.hours.toFixed(2)}h`)
+        .map((t) => `Task ${t.id}: ${t.days.toFixed(2)}d`)
         .join(', ')}]`
     );
   });
@@ -566,23 +567,23 @@ function renderSummaryTable() {
       ) / totalTasks
     : 0;
 
-  const teamHoursPercentage =
-    teamRow.targetHours > 0 ? (teamRow.hours / teamRow.targetHours) * 100 : 0;
+  const teamDaysPercentage =
+    teamRow.targetDays > 0 ? (teamRow.days / teamRow.targetDays) * 100 : 0;
   let teamStatus = '';
   let teamStatusColor = '';
-  if (teamHoursPercentage > 100) {
+  if (teamDaysPercentage > 100) {
     teamStatus = 'Above Capacity';
     teamStatusColor = 'above-capacity';
   } else if (
     teamCapAvg *
-      (teamRow.hours / (teamRow.targetHours > 0 ? teamRow.targetHours : 1)) <
+      (teamRow.days / (teamRow.targetDays > 0 ? teamRow.targetDays : 1)) <
     1.5
   ) {
     teamStatus = 'Below Capacity';
     teamStatusColor = 'below-capacity';
   } else if (
     teamCapAvg *
-      (teamRow.hours / (teamRow.targetHours > 0 ? teamRow.targetHours : 1)) <=
+      (teamRow.days / (teamRow.targetDays > 0 ? teamRow.targetDays : 1)) <=
     2.49
   ) {
     teamStatus = 'At Capacity';
@@ -594,11 +595,11 @@ function renderSummaryTable() {
 
   const teamRowEl = document.createElement('tr');
   teamRowEl.innerHTML = `
-        <td><strong>Team</strong></td>
-        <td>${teamRow.tasks}</td>
-        <td>${teamCapAvg.toFixed(2)}</td>
-        <td>${teamRow.hours.toFixed(2)}/${teamRow.targetHours.toFixed(2)}</td>
-        <td class="${teamStatusColor}" style="font-weight: bold; color: ${
+    <td><strong>Team</strong></td>
+    <td>${teamRow.tasks}</td>
+    <td>${teamCapAvg.toFixed(2)}</td>
+    <td>${teamRow.days.toFixed(2)}/${teamRow.targetDays.toFixed(2)}</td>
+    <td class="${teamStatusColor}" style="font-weight: bold; color: ${
     teamStatusColor === 'below-capacity'
       ? '#d39e00'
       : teamStatusColor === 'at-capacity'
@@ -610,15 +611,15 @@ function renderSummaryTable() {
   console.log(
     `Team: tasks=${teamRow.tasks}, capAvg=${teamCapAvg.toFixed(
       2
-    )}, hours=${teamRow.hours.toFixed(
+    )}, days=${teamRow.days.toFixed(
       2
-    )}, targetHours=${teamRow.targetHours.toFixed(2)}`
+    )}, targetDays=${teamRow.targetDays.toFixed(2)}`
   );
 
-  renderCharts(capData, hoursData, targetHoursData);
+  renderCharts(capData, daysData, targetDaysData);
 }
 
-function renderCharts(capData, hoursData, targetHoursData) {
+function renderCharts(capData, daysData, targetDaysData) {
   if (!window.Chart) {
     console.error('Chart.js not loaded.');
     alert('Chart.js failed to load. Please check your Internet connection.');
@@ -652,28 +653,27 @@ function renderCharts(capData, hoursData, targetHoursData) {
       options: { scales: { y: { beginAtZero: true, max: 3 } } },
     });
 
-    const percentageData = hoursData.map((hours, i) => {
-      const target = targetHoursData[i];
-      return target > 0 ? (hours / target) * 100 : 0;
+    const percentageData = daysData.map((days, i) => {
+      const target = targetDaysData[i];
+      return target > 0 ? (days / target) * 100 : 0;
     });
 
     hoursChartInstance = new Chart(document.getElementById('hoursChart'), {
       type: 'bar',
       data: {
         labels: sprintConfig.developers.map(
-          (dev, i) => `${dev} (${targetHoursData[i].toFixed(2)}h)`
+          (dev, i) => `${dev} (${targetDaysData[i].toFixed(2)}d)`
         ),
         datasets: [
           {
-            label: 'Hours (% of Target)',
+            label: 'Days (% of Target)',
             data: percentageData,
-            backgroundColor: percentageData.map(
-              (percentage) =>
-                percentage < 80
-                  ? '#fff3cd' // Yellow for below 80%
-                  : percentage <= 100
-                  ? '#d4edda' // Green for 80-100%
-                  : '#f8d7da' // Red for above 100%
+            backgroundColor: percentageData.map((percentage) =>
+              percentage < 80
+                ? '#fff3cd'
+                : percentage <= 100
+                ? '#d4edda'
+                : '#f8d7da'
             ),
           },
         ],
@@ -685,7 +685,7 @@ function renderCharts(capData, hoursData, targetHoursData) {
             max: 120,
             title: {
               display: true,
-              text: 'Percentage of Target Hours',
+              text: 'Percentage of Target Days',
             },
             ticks: {
               callback: function (value) {
@@ -698,13 +698,9 @@ function renderCharts(capData, hoursData, targetHoursData) {
           datalabels: {
             anchor: 'end',
             align: 'top',
-            formatter: (value) => {
-              return value.toFixed(0) + '%';
-            },
+            formatter: (value) => value.toFixed(0) + '%',
             color: 'black',
-            font: {
-              weight: 'bold',
-            },
+            font: { weight: 'bold' },
           },
         },
       },
@@ -731,21 +727,18 @@ function clearAssignments() {
 }
 
 function automaticAssignment() {
-  // Do NOT clear existing assignments to preserve manual assignments
   console.log(
     'Starting automatic assignment with existing assignments:',
     assignments
   );
 
-  // Initialize developer state with existing assignments
   const developerTargets = sprintConfig.developers.map((dev) => {
-    // Find tasks already assigned to this developer
     const assignedTasks = Object.entries(assignments)
       .filter(([_, assignedDev]) => assignedDev === dev)
       .map(([taskId]) => tasks.find((task) => task.id === parseInt(taskId)))
-      .filter((task) => task); // Ensure task exists
-    const assignedHours = assignedTasks.reduce(
-      (sum, task) => sum + (task.hours || 0),
+      .filter((task) => task);
+    const assignedDays = assignedTasks.reduce(
+      (sum, task) => sum + (task.days || 0),
       0
     );
     const capSum = assignedTasks.reduce(
@@ -755,58 +748,46 @@ function automaticAssignment() {
 
     return {
       name: dev,
-      targetHours: calculateTargetHours(dev),
-      assignedHours: assignedHours,
+      targetDays: calculateTargetDays(dev),
+      assignedDays: assignedDays,
       assignedTasks: assignedTasks,
       capSum: capSum,
     };
   });
 
-  // Create a list of unassigned tasks
   const taskList = tasks
-    .filter((task) => !assignments[task.id]) // Only include tasks not already assigned
+    .filter((task) => !assignments[task.id])
     .map((task) => ({
       id: task.id,
       capAvg: task.capAvg || 0,
-      hours: task.hours || 0,
+      days: task.days || 0,
     }));
 
-  // Sort tasks by capAvg (ascending) to prioritize tasks closest to 2.00
   taskList.sort((a, b) => Math.abs(a.capAvg - 2) - Math.abs(b.capAvg - 2));
 
   console.log('Unassigned tasks to process:', taskList);
   console.log('Initial developer targets:', developerTargets);
 
-  // Assign unassigned tasks to developers
   taskList.forEach((task) => {
-    // Find the best developer for this task
     let bestDev = null;
     let bestScore = Infinity;
 
     developerTargets.forEach((dev) => {
-      // Skip if adding this task would exceed target hours
-      if (dev.assignedHours + task.hours > dev.targetHours) {
+      if (dev.assignedDays + task.days > dev.targetDays) {
         return;
       }
 
-      // Calculate current capability average
       const currentCapAvg = dev.assignedTasks.length
         ? dev.capSum / dev.assignedTasks.length
         : 0;
-
-      // Score based on how close the new capability average would be to 2.00
       const newCapSum = dev.capSum + task.capAvg;
       const newTaskCount = dev.assignedTasks.length + 1;
       const newCapAvg = newCapSum / newTaskCount;
       const capScore = Math.abs(newCapAvg - 2);
-
-      // Score based on how close to 100% target hours
-      const newHours = dev.assignedHours + task.hours;
-      const hoursScore =
-        dev.targetHours > 0 ? Math.abs(newHours / dev.targetHours - 1) : 0;
-
-      // Combined score (weight capabilityolen hours equally)
-      const score = capScore + hoursScore;
+      const newDays = dev.assignedDays + task.days;
+      const daysScore =
+        dev.targetDays > 0 ? Math.abs(newDays / dev.targetDays - 1) : 0;
+      const score = capScore + daysScore;
 
       if (score < bestScore) {
         bestScore = score;
@@ -814,10 +795,9 @@ function automaticAssignment() {
       }
     });
 
-    // Assign the task to the best developer if found
     if (bestDev) {
       assignments[task.id] = bestDev.name;
-      bestDev.assignedHours += task.hours;
+      bestDev.assignedDays += task.days;
       bestDev.assignedTasks.push(task);
       bestDev.capSum += task.capAvg;
       console.log(
@@ -830,26 +810,23 @@ function automaticAssignment() {
     }
   });
 
-  // Save and update UI
   saveData();
   alert('Automatic assignments completed, manual assignments preserved!');
   renderAssignmentsTable();
 
-  // Log assignment results for debugging
   console.log('Automatic Assignment Results:');
   developerTargets.forEach((dev) => {
     const capAvg = dev.assignedTasks.length
       ? dev.capSum / dev.assignedTasks.length
       : 0;
     console.log(
-      `Developer ${dev.name}: ${dev.assignedTasks.length} tasks, ` +
-        `Cap Avg: ${capAvg.toFixed(2)}, ` +
-        `Hours: ${dev.assignedHours.toFixed(2)}/${dev.targetHours.toFixed(
-          2
-        )}, ` +
-        `Tasks=[${dev.assignedTasks
-          .map((t) => `Task ${t.id}: ${t.hours.toFixed(2)}h`)
-          .join(', ')}]`
+      `Developer ${dev.name}: ${
+        dev.assignedTasks.length
+      } tasks, Cap Avg: ${capAvg.toFixed(2)}, Days: ${dev.assignedDays.toFixed(
+        2
+      )}/${dev.targetDays.toFixed(2)}, Tasks=[${dev.assignedTasks
+        .map((t) => `Task ${t.id}: ${t.days.toFixed(2)}d`)
+        .join(', ')}]`
     );
   });
 }
@@ -867,17 +844,14 @@ function renderSummaryPage() {
     assignments
   );
 
-  // Clear existing content
   assignedTasksDiv.innerHTML = '';
   unassignedTasksBody.innerHTML = '';
 
-  // Group tasks by developer
   const tasksByDeveloper = {};
   sprintConfig.developers.forEach((dev) => {
     tasksByDeveloper[dev] = [];
   });
 
-  // Categorize tasks as assigned or unassigned
   const unassignedTasks = [];
   tasks.forEach((task) => {
     const dev = assignments[task.id];
@@ -888,10 +862,9 @@ function renderSummaryPage() {
     }
   });
 
-  // Render assigned tasks by developer
   sprintConfig.developers.forEach((dev) => {
     const devTasks = tasksByDeveloper[dev];
-    if (devTasks.length === 0) return; // Skip developers with no tasks
+    if (devTasks.length === 0) return;
 
     const devSection = document.createElement('div');
     devSection.className = 'mb-4';
@@ -904,22 +877,22 @@ function renderSummaryPage() {
           <th>Task ID</th>
           <th>Description</th>
           <th>Capability</th>
-          <th>Hours</th>
+          <th>Days</th>
         </tr>
       </thead>
       <tbody>
         ${devTasks
           .map(
             (task) => `
-              <tr>
-                <td>${task.id}</td>
-                <td>${task.description}</td>
-                <td class="${
-                  task.capColor ? task.capColor.toLowerCase() : ''
-                }" style="font-weight: bold;">${task.capColor || ''}</td>
-                <td>${task.hours ? task.hours.toFixed(2) : '0.00'}</td>
-              </tr>
-            `
+          <tr>
+            <td>${task.id}</td>
+            <td>${task.description}</td>
+            <td class="${
+              task.capColor ? task.capColor.toLowerCase() : ''
+            }" style="font-weight: bold;">${task.capColor || ''}</td>
+            <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>
+          </tr>
+        `
           )
           .join('')}
       </tbody>
@@ -928,7 +901,6 @@ function renderSummaryPage() {
     assignedTasksDiv.appendChild(devSection);
   });
 
-  // Render unassigned tasks
   if (unassignedTasks.length === 0) {
     unassignedTasksBody.innerHTML =
       '<tr><td colspan="4" class="text-center">No unassigned tasks.</td></tr>';
@@ -941,8 +913,7 @@ function renderSummaryPage() {
         <td class="${
           task.capColor ? task.capColor.toLowerCase() : ''
         }" style="font-weight: bold;">${task.capColor || ''}</td>
-        <td>${task.hours ? task.hours.toFixed(2) : '0.00'}</td>
-      `;
+        <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>`;
       unassignedTasksBody.appendChild(row);
     });
   }
@@ -952,7 +923,7 @@ function renderSummaryPage() {
     unassignedTasks: unassignedTasks.map((t) => ({
       id: t.id,
       description: t.description,
-      hours: t.hours ? t.hours.toFixed(2) : '0.00',
+      days: t.days ? t.days.toFixed(2) : '0.00',
       capColor: t.capColor,
     })),
   });
