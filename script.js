@@ -732,6 +732,7 @@ function automaticAssignment() {
     assignments
   );
 
+  // Initialize developer data
   const developerTargets = sprintConfig.developers.map((dev) => {
     const assignedTasks = Object.entries(assignments)
       .filter(([_, assignedDev]) => assignedDev === dev)
@@ -755,7 +756,8 @@ function automaticAssignment() {
     };
   });
 
-  const taskList = tasks
+  // Get unassigned tasks
+  let unassignedTasks = tasks
     .filter((task) => !assignments[task.id])
     .map((task) => ({
       id: task.id,
@@ -763,55 +765,146 @@ function automaticAssignment() {
       days: task.days || 0,
     }));
 
-  taskList.sort((a, b) => Math.abs(a.capAvg - 2) - Math.abs(b.capAvg - 2));
-
-  console.log('Unassigned tasks to process:', taskList);
+  console.log('Initial unassigned tasks:', unassignedTasks);
   console.log('Initial developer targets:', developerTargets);
 
-  taskList.forEach((task) => {
-    let bestDev = null;
-    let bestScore = Infinity;
+  let assignmentsMade;
+  do {
+    assignmentsMade = false;
+    // Shuffle unassigned tasks to avoid bias from task order
+    unassignedTasks = unassignedTasks.sort(() => Math.random() - 0.5);
 
-    developerTargets.forEach((dev) => {
-      if (dev.assignedDays + task.days > dev.targetDays) {
-        return;
-      }
+    const tasksToAssign = [...unassignedTasks];
+    unassignedTasks = []; // Clear and rebuild with unassigned tasks
 
-      const currentCapAvg = dev.assignedTasks.length
-        ? dev.capSum / dev.assignedTasks.length
-        : 0;
-      const newCapSum = dev.capSum + task.capAvg;
-      const newTaskCount = dev.assignedTasks.length + 1;
-      const newCapAvg = newCapSum / newTaskCount;
-      const capScore = Math.abs(newCapAvg - 2);
-      const newDays = dev.assignedDays + task.days;
-      const daysScore =
-        dev.targetDays > 0 ? Math.abs(newDays / dev.targetDays - 1) : 0;
-      const score = capScore + daysScore;
+    tasksToAssign.forEach((task) => {
+      let bestDev = null;
+      let bestScore = Infinity;
 
-      if (score < bestScore) {
-        bestScore = score;
-        bestDev = dev;
+      developerTargets.forEach((dev) => {
+        // Skip if assigning would exceed target days (red zone for time)
+        if (dev.assignedDays + task.days > dev.targetDays) {
+          return;
+        }
+
+        // Calculate new days and capability if this task is assigned
+        const newDays = dev.assignedDays + task.days;
+        const daysPercentage =
+          dev.targetDays > 0 ? (newDays / dev.targetDays) * 100 : 0;
+        const newCapSum = dev.capSum + task.capAvg;
+        const newTaskCount = dev.assignedTasks.length + 1;
+        const newCapAvg = newTaskCount > 0 ? newCapSum / newTaskCount : 0;
+
+        // Primary score: Penalize based on distance from 80-100% time utilization
+        let timeScore;
+        if (daysPercentage >= 80 && daysPercentage <= 100) {
+          timeScore = 0; // Green zone: perfect score
+        } else if (daysPercentage > 100) {
+          timeScore = Infinity; // Red zone: never allow
+        } else if (daysPercentage >= 60) {
+          timeScore = Math.abs(daysPercentage - 90) * 10; // Yellow zone: penalize distance from 90%
+        } else {
+          timeScore = (80 - daysPercentage) * 20; // Below 60%: heavier penalty
+        }
+
+        // Secondary score: Penalize based on distance from capAvg = 2.0
+        const capScore = Math.abs(newCapAvg - 2) * 100;
+
+        // Capability penalty: Heavily penalize red zone (>2.49) unless no other options
+        const capPenalty =
+          newCapAvg > 2.49 ? 10000 : newCapAvg < 1.5 ? 1000 : 0;
+
+        // Total score: Primary is time, secondary is capability
+        const score = timeScore + capScore + capPenalty;
+
+        if (score < bestScore) {
+          bestScore = score;
+          bestDev = dev;
+        }
+      });
+
+      if (bestDev && bestScore < Infinity) {
+        assignments[task.id] = bestDev.name;
+        bestDev.assignedDays += task.days;
+        bestDev.assignedTasks.push(task);
+        bestDev.capSum += task.capAvg;
+        assignmentsMade = true;
+        console.log(
+          `Assigned task ${task.id} to ${bestDev.name}, score: ${bestScore}`
+        );
+      } else {
+        unassignedTasks.push(task);
+        console.log(`Task ${task.id} could not be assigned in this pass.`);
       }
     });
+  } while (assignmentsMade && unassignedTasks.length > 0);
 
-    if (bestDev) {
-      assignments[task.id] = bestDev.name;
-      bestDev.assignedDays += task.days;
-      bestDev.assignedTasks.push(task);
-      bestDev.capSum += task.capAvg;
-      console.log(
-        `Assigned task ${task.id} to ${bestDev.name}, score: ${bestScore}`
-      );
-    } else {
-      console.log(
-        `Task ${task.id} could not be assigned (no suitable developer).`
-      );
-    }
-  });
+  // Final pass: Try to assign remaining tasks, allowing yellow capability (<1.5) but never red time
+  if (unassignedTasks.length > 0) {
+    console.log('Final pass for remaining tasks:', unassignedTasks);
+    const tasksToAssign = [...unassignedTasks];
+    unassignedTasks = [];
+
+    tasksToAssign.forEach((task) => {
+      let bestDev = null;
+      let bestScore = Infinity;
+
+      developerTargets.forEach((dev) => {
+        // Skip if assigning would exceed target days
+        if (dev.assignedDays + task.days > dev.targetDays) {
+          return;
+        }
+
+        const newDays = dev.assignedDays + task.days;
+        const daysPercentage =
+          dev.targetDays > 0 ? (newDays / dev.targetDays) * 100 : 0;
+        const newCapSum = dev.capSum + task.capAvg;
+        const newTaskCount = dev.assignedTasks.length + 1;
+        const newCapAvg = newTaskCount > 0 ? newCapSum / newTaskCount : 0;
+
+        // Time score
+        let timeScore;
+        if (daysPercentage >= 80 && daysPercentage <= 100) {
+          timeScore = 0;
+        } else if (daysPercentage > 100) {
+          timeScore = Infinity;
+        } else if (daysPercentage >= 60) {
+          timeScore = Math.abs(daysPercentage - 90) * 10;
+        } else {
+          timeScore = (80 - daysPercentage) * 20;
+        }
+
+        // Capability score: Allow yellow (<1.5) but heavily penalize red (>2.49)
+        const capScore = Math.abs(newCapAvg - 2) * 100;
+        const capPenalty = newCapAvg > 2.49 ? 10000 : 0;
+
+        const score = timeScore + capScore + capPenalty;
+
+        if (score < bestScore) {
+          bestScore = score;
+          bestDev = dev;
+        }
+      });
+
+      if (bestDev && bestScore < Infinity) {
+        assignments[task.id] = bestDev.name;
+        bestDev.assignedDays += task.days;
+        bestDev.assignedTasks.push(task);
+        bestDev.capSum += task.capAvg;
+        console.log(
+          `Final pass: Assigned task ${task.id} to ${bestDev.name}, score: ${bestScore}`
+        );
+      } else {
+        unassignedTasks.push(task);
+        console.log(`Final pass: Task ${task.id} could not be assigned.`);
+      }
+    });
+  }
 
   saveData();
-  alert('Automatic assignments completed, manual assignments preserved!');
+  alert(
+    `Automatic assignments completed! ${unassignedTasks.length} tasks remain unassigned.`
+  );
   renderAssignmentsTable();
 
   console.log('Automatic Assignment Results:');
@@ -829,6 +922,9 @@ function automaticAssignment() {
         .join(', ')}]`
     );
   });
+  if (unassignedTasks.length > 0) {
+    console.log('Unassigned tasks:', unassignedTasks);
+  }
 }
 
 // Render summary page
