@@ -33,6 +33,7 @@ function saveData() {
         id: t.id,
         description: t.description,
         days: t.days,
+        rawDays: t.rawDays,
       })),
       votes,
       assignments,
@@ -55,12 +56,29 @@ function calculateTargetDays(developer) {
   const availableDays = days - holidays - personalDaysOff;
   let targetHours = availableDays * hoursPerDay * (1 - buffer / 100) - overhead;
   targetHours = Number(targetHours.toFixed(2));
-  // Convert target hours to days, rounded to nearest 0.5
   const targetDays = Math.round((targetHours / hoursPerDay) * 2) / 2;
   return Math.max(0, targetDays);
 }
 
-// Update task calculations (capAvg, days, etc.) and store in tasks
+// Map days to story points for tasks based on raw average days
+function getTaskStoryPoints(rawDays) {
+  const storyPointMap = [
+    { days: 0.5, points: 1 },
+    { days: 1, points: 2 },
+    { days: 1.5, points: 3 },
+    { days: 2.5, points: 5 },
+    { days: 4, points: 8 },
+  ];
+
+  if (!rawDays) return 0;
+
+  const closest = storyPointMap.reduce((prev, curr) =>
+    Math.abs(curr.days - rawDays) < Math.abs(prev.days - rawDays) ? curr : prev
+  );
+  return closest.points;
+}
+
+// Update task calculations (capAvg, days, rawDays, etc.) and store in tasks
 function updateTaskCalculations() {
   tasks.forEach((task) => {
     const capPoints = sprintConfig.developers
@@ -94,9 +112,10 @@ function updateTaskCalculations() {
     const capAvg = capPoints.length
       ? capPoints.reduce((a, b) => a + b, 0) / capPoints.length
       : 0;
-    const days = timeDays.length
+    const rawDays = timeDays.length
       ? timeDays.reduce((a, b) => a + b, 0) / timeDays.length
       : 0;
+    const days = Math.round(rawDays * 2) / 2; // Rounded for display
     const composite =
       sprintConfig.developers
         .map((dev) => {
@@ -127,31 +146,29 @@ function updateTaskCalculations() {
     const capColor =
       capAvg <= 1.49 ? 'Trivial' : capAvg <= 2.49 ? 'Optimal' : 'Challenging';
 
-    // Round days to nearest 0.5
-    const roundedDays = Math.round(days * 2) / 2;
-
-    // Validate task.days
-    if (task.days !== roundedDays) {
+    if (task.days !== days || task.rawDays !== rawDays) {
       console.warn(
-        `Task ${task.id} days mismatch: stored=${task.days}, expected=${roundedDays}`
+        `Task ${task.id} days mismatch: stored=${task.days}/${task.rawDays}, expected=${days}/${rawDays}`
       );
-      task.days = roundedDays;
+      task.days = days;
+      task.rawDays = rawDays;
     }
 
     task.capAvg = capAvg;
     task.capColor = capColor;
     task.composite = composite;
-    // Remove hours field if it exists
     delete task.hours;
   });
 
   saveData();
   console.log(
-    'Tasks updated with new days:',
+    'Tasks updated:',
     tasks.map((t) => ({
       id: t.id,
       description: t.description,
+      rawDays: t.rawDays.toFixed(2),
       days: t.days.toFixed(2),
+      storyPoints: getTaskStoryPoints(t.rawDays),
     }))
   );
 }
@@ -165,9 +182,11 @@ function debugData() {
     tasks.map((t) => ({
       id: t.id,
       description: t.description,
+      rawDays: t.rawDays.toFixed(2),
       days: t.days.toFixed(2),
       capAvg: t.capAvg,
       capColor: t.capColor,
+      storyPoints: getTaskStoryPoints(t.rawDays),
     }))
   );
   console.log('Assignments:', assignments);
@@ -301,44 +320,44 @@ function renderVotingTable() {
       const capValue = votes[`${task.id}-${dev}-cap`] || '';
       const timeValue = votes[`${task.id}-${dev}-time`] || '';
       row.innerHTML += `
-        <td><select class="form-select cap" data-task="${
-          task.id
-        }" data-dev="${dev}" data-type="cap">
-            <option value="" class="select-option" ${
-              capValue === '' ? 'selected' : ''
-            }>Select</option>
-            <option value="Trivial" class="trivial" ${
-              capValue === 'Trivial' ? 'selected' : ''
-            }>Trivial</option>
-            <option value="Optimal" class="optimal" ${
-              capValue === 'Optimal' ? 'selected' : ''
-            }>Optimal</option>
-            <option value="Challenging" class="challenging" ${
-              capValue === 'Challenging' ? 'selected' : ''
-            }>Challenging</option>
-        </select></td>
-        <td><select class="form-select time" data-task="${
-          task.id
-        }" data-dev="${dev}" data-type="time">
-            <option value="" class="select-option" ${
-              timeValue === '' ? 'selected' : ''
-            }>Select</option>
-            <option value="1/2 Day" ${
-              timeValue === '1/2 Day' ? 'selected' : ''
-            }>1/2 Day</option>
-            <option value="1 Day" ${
-              timeValue === '1 Day' ? 'selected' : ''
-            }>1 Day</option>
-            <option value="1.5 Days" ${
-              timeValue === '1.5 Days' ? 'selected' : ''
-            }>1.5 Days</option>
-            <option value="2.5 Days" ${
-              timeValue === '2.5 Days' ? 'selected' : ''
-            }>2.5 Days</option>
-            <option value="4 Days" ${
-              timeValue === '4 Days' ? 'selected' : ''
-            }>4 Days</option>
-        </select></td>`;
+                <td><select class="form-select cap" data-task="${
+                  task.id
+                }" data-dev="${dev}" data-type="cap">
+                    <option value="" class="select-option" ${
+                      capValue === '' ? 'selected' : ''
+                    }>Select</option>
+                    <option value="Trivial" class="trivial" ${
+                      capValue === 'Trivial' ? 'selected' : ''
+                    }>Trivial</option>
+                    <option value="Optimal" class="optimal" ${
+                      capValue === 'Optimal' ? 'selected' : ''
+                    }>Optimal</option>
+                    <option value="Challenging" class="challenging" ${
+                      capValue === 'Challenging' ? 'selected' : ''
+                    }>Challenging</option>
+                </select></td>
+                <td><select class="form-select time" data-task="${
+                  task.id
+                }" data-dev="${dev}" data-type="time">
+                    <option value="" class="select-option" ${
+                      timeValue === '' ? 'selected' : ''
+                    }>Select</option>
+                    <option value="1/2 Day" ${
+                      timeValue === '1/2 Day' ? 'selected' : ''
+                    }>1/2 Day</option>
+                    <option value="1 Day" ${
+                      timeValue === '1 Day' ? 'selected' : ''
+                    }>1 Day</option>
+                    <option value="1.5 Days" ${
+                      timeValue === '1.5 Days' ? 'selected' : ''
+                    }>1.5 Days</option>
+                    <option value="2.5 Days" ${
+                      timeValue === '2.5 Days' ? 'selected' : ''
+                    }>2.5 Days</option>
+                    <option value="4 Days" ${
+                      timeValue === '4 Days' ? 'selected' : ''
+                    }>4 Days</option>
+                </select></td>`;
     });
     row.innerHTML += `<td><button class="btn btn-danger btn-sm" onclick="deleteTask(${task.id})">Delete</button></td>`;
     body.appendChild(row);
@@ -387,16 +406,12 @@ function saveVotes() {
 // Tasks
 function renderTasksTable() {
   const table = document.getElementById('tasksTable');
-  if (!table) {
-    console.error('Tasks table element not found.');
-    return;
-  }
+  if (!table) return;
 
-  console.log('Rendering tasks table with tasks:', tasks, 'and votes:', votes);
+  console.log('Rendering tasks table with tasks, votes:', { tasks, votes });
   table.innerHTML = '';
 
   if (tasks.length === 0) {
-    console.warn('No tasks available to render.');
     const row = document.createElement('tr');
     row.innerHTML =
       '<td colspan="6" class="text-center">No tasks available. Add tasks in the Voting page.</td>';
@@ -407,14 +422,14 @@ function renderTasksTable() {
   tasks.forEach((task) => {
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${task.id}</td>
-      <td>${task.description}</td>
-      <td>${task.capAvg ? task.capAvg.toFixed(2) : '0.00'}</td>
-      <td class="${
-        task.capColor ? task.capColor.toLowerCase() : ''
-      }" style="font-weight: bold;">${task.capColor || ''}</td>
-      <td>${task.composite ? task.composite.toFixed(2) : '0.00'}</td>
-      <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>`;
+            <td>${task.id}</td>
+            <td>${task.description}</td>
+            <td>${task.capAvg ? task.capAvg.toFixed(2) : '0.00'}</td>
+            <td class="${
+              task.capColor ? task.capColor.toLowerCase() : ''
+            }" style="font-weight: bold;">${task.capColor || ''}</td>
+            <td>${task.composite ? task.composite.toFixed(2) : '0.00'}</td>
+            <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>`;
     table.appendChild(row);
   });
 }
@@ -425,29 +440,31 @@ function renderAssignmentsTable() {
   if (!tbody) return;
   tbody.innerHTML = '';
   tasks.forEach((task) => {
+    const storyPoints = getTaskStoryPoints(task.rawDays);
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${task.id}</td>
-      <td>${task.description}</td>
-      <td>
-        <select class="form-select assign" data-task="${task.id}">
-          <option value="" ${
-            !assignments[task.id] ? 'selected' : ''
-          }>Select</option>
-          ${sprintConfig.developers
-            .map(
-              (dev) =>
-                `<option value="${dev}" ${
-                  assignments[task.id] === dev ? 'selected' : ''
-                }>${dev}</option>`
-            )
-            .join('')}
-        </select>
-      </td>
-      <td class="${
-        task.capColor ? task.capColor.toLowerCase() : ''
-      }" style="font-weight: bold;">${task.capColor || ''}</td>
-      <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>`;
+            <td>${task.id}</td>
+            <td>${task.description}</td>
+            <td>
+                <select class="form-select assign" data-task="${task.id}">
+                    <option value="" ${
+                      !assignments[task.id] ? 'selected' : ''
+                    }>Select</option>
+                    ${sprintConfig.developers
+                      .map(
+                        (dev) =>
+                          `<option value="${dev}" ${
+                            assignments[task.id] === dev ? 'selected' : ''
+                          }>${dev}</option>`
+                      )
+                      .join('')}
+                </select>
+            </td>
+            <td class="${
+              task.capColor ? task.capColor.toLowerCase() : ''
+            }" style="font-weight: bold;">${task.capColor || ''}</td>
+            <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>
+            <td>${storyPoints}</td>`;
     tbody.appendChild(row);
   });
 
@@ -476,7 +493,7 @@ function renderSummaryTable() {
   const table = document.getElementById('summaryTable');
   if (!table) return;
   table.innerHTML = '';
-  const teamRow = { tasks: 0, days: 0, targetDays: 0 };
+  const teamRow = { tasks: 0, days: 0, targetDays: 0, storyPoints: 0 };
   const teamCapData = [];
 
   const capData = [];
@@ -490,6 +507,10 @@ function renderSummaryTable() {
       .filter((task) => task);
     const days = Number(
       devTasks.reduce((sum, task) => sum + (task.days || 0), 0).toFixed(2)
+    );
+    const storyPoints = devTasks.reduce(
+      (sum, task) => sum + getTaskStoryPoints(task.rawDays || 0),
+      0
     );
     const capPoints = devTasks.reduce((sum, task) => {
       return sum + (task.capAvg <= 1.49 ? 1 : task.capAvg <= 2.49 ? 2 : 3);
@@ -521,22 +542,24 @@ function renderSummaryTable() {
 
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${dev}</td>
-      <td>${devTasks.length}</td>
-      <td>${capAvg.toFixed(2)}</td>
-      <td>${days.toFixed(2)}/${targetDays.toFixed(2)}</td>
-      <td class="${statusColor}" style="font-weight: bold; color: ${
+            <td>${dev}</td>
+            <td>${devTasks.length}</td>
+            <td>${capAvg.toFixed(2)}</td>
+            <td>${days.toFixed(2)}/${targetDays.toFixed(2)}</td>
+            <td class="${statusColor}" style="font-weight: bold; color: ${
       statusColor === 'below-capacity'
         ? '#d39e00'
         : statusColor === 'at-capacity'
         ? '#28a745'
         : '#dc3545'
-    };">${status}</td>`;
+    };">${status}</td>
+            <td>${storyPoints}</td>`;
     table.appendChild(row);
 
     teamRow.tasks += devTasks.length;
     teamRow.days += days;
     teamRow.targetDays += targetDays;
+    teamRow.storyPoints += storyPoints;
     if (devTasks.length) {
       teamCapData.push({ capAvg, taskCount: devTasks.length });
     }
@@ -550,8 +573,13 @@ function renderSummaryTable() {
         2
       )}, days=${days.toFixed(2)}, targetDays=${targetDays.toFixed(
         2
-      )}, tasks=[${devTasks
-        .map((t) => `Task ${t.id}: ${t.days.toFixed(2)}d`)
+      )}, storyPoints=${storyPoints}, tasks=[${devTasks
+        .map(
+          (t) =>
+            `Task ${t.id}: ${t.rawDays.toFixed(2)}d(raw)/${t.days.toFixed(
+              2
+            )}d, ${getTaskStoryPoints(t.rawDays)}sp`
+        )
         .join(', ')}]`
     );
   });
@@ -595,17 +623,18 @@ function renderSummaryTable() {
 
   const teamRowEl = document.createElement('tr');
   teamRowEl.innerHTML = `
-    <td><strong>Team</strong></td>
-    <td>${teamRow.tasks}</td>
-    <td>${teamCapAvg.toFixed(2)}</td>
-    <td>${teamRow.days.toFixed(2)}/${teamRow.targetDays.toFixed(2)}</td>
-    <td class="${teamStatusColor}" style="font-weight: bold; color: ${
+        <td><strong>Team</strong></td>
+        <td>${teamRow.tasks}</td>
+        <td>${teamCapAvg.toFixed(2)}</td>
+        <td>${teamRow.days.toFixed(2)}/${teamRow.targetDays.toFixed(2)}</td>
+        <td class="${teamStatusColor}" style="font-weight: bold; color: ${
     teamStatusColor === 'below-capacity'
       ? '#d39e00'
       : teamStatusColor === 'at-capacity'
       ? '#28a745'
       : '#dc3545'
-  }">${teamStatus}</td>`;
+  }">${teamStatus}</td>
+        <td>${teamRow.storyPoints}</td>`;
   table.appendChild(teamRowEl);
 
   console.log(
@@ -613,7 +642,9 @@ function renderSummaryTable() {
       2
     )}, days=${teamRow.days.toFixed(
       2
-    )}, targetDays=${teamRow.targetDays.toFixed(2)}`
+    )}, targetDays=${teamRow.targetDays.toFixed(2)}, storyPoints=${
+      teamRow.storyPoints
+    }`
   );
 
   renderCharts(capData, daysData, targetDaysData);
@@ -650,7 +681,14 @@ function renderCharts(capData, daysData, targetDaysData) {
           },
         ],
       },
-      options: { scales: { y: { beginAtZero: true, max: 3 } } },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 3,
+          },
+        },
+      },
     });
 
     const percentageData = daysData.map((days, i) => {
@@ -700,7 +738,9 @@ function renderCharts(capData, daysData, targetDaysData) {
             align: 'top',
             formatter: (value) => value.toFixed(0) + '%',
             color: 'black',
-            font: { weight: 'bold' },
+            font: {
+              weight: 'bold',
+            },
           },
         },
       },
@@ -728,203 +768,292 @@ function clearAssignments() {
 
 function automaticAssignment() {
   console.log(
-    'Starting automatic assignment with existing assignments:',
+    'Starting deterministic assignment with existing assignments:',
     assignments
   );
 
-  // Initialize developer data
-  const developerTargets = sprintConfig.developers.map((dev) => {
-    const assignedTasks = Object.entries(assignments)
-      .filter(([_, assignedDev]) => assignedDev === dev)
-      .map(([taskId]) => tasks.find((task) => task.id === parseInt(taskId)))
-      .filter((task) => task);
-    const assignedDays = assignedTasks.reduce(
-      (sum, task) => sum + (task.days || 0),
-      0
-    );
-    const capSum = assignedTasks.reduce(
-      (sum, task) => sum + (task.capAvg || 0),
-      0
-    );
+  // Initialize developer states
+  const developerTargets = sprintConfig.developers.map((dev) => ({
+    name: dev,
+    targetDays: calculateTargetDays(dev),
+    assignedTasks: [],
+    assignedDays: 0,
+    capSum: 0,
+  }));
 
-    return {
-      name: dev,
-      targetDays: calculateTargetDays(dev),
-      assignedDays: assignedDays,
-      assignedTasks: assignedTasks,
-      capSum: capSum,
-    };
-  });
-
-  // Get unassigned tasks
-  let unassignedTasks = tasks
-    .filter((task) => !assignments[task.id])
-    .map((task) => ({
-      id: task.id,
-      capAvg: task.capAvg || 0,
-      days: task.days || 0,
+  // Compute cost of an assignment state
+  function computeCost(assignments) {
+    const devStates = sprintConfig.developers.map(() => ({
+      days: 0,
+      capSum: 0,
+      taskCount: 0,
     }));
 
-  console.log('Initial unassigned tasks:', unassignedTasks);
-  console.log('Initial developer targets:', developerTargets);
-
-  let assignmentsMade;
-  do {
-    assignmentsMade = false;
-    // Shuffle unassigned tasks to avoid bias from task order
-    unassignedTasks = unassignedTasks.sort(() => Math.random() - 0.5);
-
-    const tasksToAssign = [...unassignedTasks];
-    unassignedTasks = []; // Clear and rebuild with unassigned tasks
-
-    tasksToAssign.forEach((task) => {
-      let bestDev = null;
-      let bestScore = Infinity;
-
-      developerTargets.forEach((dev) => {
-        // Skip if assigning would exceed target days (red zone for time)
-        if (dev.assignedDays + task.days > dev.targetDays) {
-          return;
+    // Calculate days and capability for each developer
+    Object.entries(assignments).forEach(([taskId, dev]) => {
+      const task = tasks.find((t) => t.id === parseInt(taskId));
+      if (task && dev) {
+        const devIndex = sprintConfig.developers.indexOf(dev);
+        if (devIndex >= 0) {
+          devStates[devIndex].days += task.days || 0;
+          devStates[devIndex].capSum += task.capAvg || 0;
+          devStates[devIndex].taskCount += 1;
         }
-
-        // Calculate new days and capability if this task is assigned
-        const newDays = dev.assignedDays + task.days;
-        const daysPercentage =
-          dev.targetDays > 0 ? (newDays / dev.targetDays) * 100 : 0;
-        const newCapSum = dev.capSum + task.capAvg;
-        const newTaskCount = dev.assignedTasks.length + 1;
-        const newCapAvg = newTaskCount > 0 ? newCapSum / newTaskCount : 0;
-
-        // Primary score: Penalize based on distance from 80-100% time utilization
-        let timeScore;
-        if (daysPercentage >= 80 && daysPercentage <= 100) {
-          timeScore = 0; // Green zone: perfect score
-        } else if (daysPercentage > 100) {
-          timeScore = Infinity; // Red zone: never allow
-        } else if (daysPercentage >= 60) {
-          timeScore = Math.abs(daysPercentage - 90) * 10; // Yellow zone: penalize distance from 90%
-        } else {
-          timeScore = (80 - daysPercentage) * 20; // Below 60%: heavier penalty
-        }
-
-        // Secondary score: Penalize based on distance from capAvg = 2.0
-        const capScore = Math.abs(newCapAvg - 2) * 100;
-
-        // Capability penalty: Heavily penalize red zone (>2.49) unless no other options
-        const capPenalty =
-          newCapAvg > 2.49 ? 10000 : newCapAvg < 1.5 ? 1000 : 0;
-
-        // Total score: Primary is time, secondary is capability
-        const score = timeScore + capScore + capPenalty;
-
-        if (score < bestScore) {
-          bestScore = score;
-          bestDev = dev;
-        }
-      });
-
-      if (bestDev && bestScore < Infinity) {
-        assignments[task.id] = bestDev.name;
-        bestDev.assignedDays += task.days;
-        bestDev.assignedTasks.push(task);
-        bestDev.capSum += task.capAvg;
-        assignmentsMade = true;
-        console.log(
-          `Assigned task ${task.id} to ${bestDev.name}, score: ${bestScore}`
-        );
-      } else {
-        unassignedTasks.push(task);
-        console.log(`Task ${task.id} could not be assigned in this pass.`);
       }
     });
-  } while (assignmentsMade && unassignedTasks.length > 0);
 
-  // Final pass: Try to assign remaining tasks, allowing yellow capability (<1.5) but never red time
-  if (unassignedTasks.length > 0) {
-    console.log('Final pass for remaining tasks:', unassignedTasks);
-    const tasksToAssign = [...unassignedTasks];
-    unassignedTasks = [];
+    let cost = 0;
+    let overCapacityCount = 0;
+    devStates.forEach((state, i) => {
+      const targetDays = developerTargets[i].targetDays;
+      const capAvg = state.taskCount > 0 ? state.capSum / state.taskCount : 0;
 
-    tasksToAssign.forEach((task) => {
-      let bestDev = null;
-      let bestScore = Infinity;
+      // Primary: Minimize deviation from target days (target 90% of capacity)
+      const daysDeviation = Math.abs(state.days - targetDays * 0.9);
+      cost += daysDeviation * 100; // High weight for days
 
-      developerTargets.forEach((dev) => {
-        // Skip if assigning would exceed target days
-        if (dev.assignedDays + task.days > dev.targetDays) {
-          return;
-        }
+      // Secondary: Minimize deviation from capAvg 2.00
+      const capDeviation = Math.abs(capAvg - 2);
+      cost += capDeviation * 50; // Lower weight for capability
 
-        const newDays = dev.assignedDays + task.days;
-        const daysPercentage =
-          dev.targetDays > 0 ? (newDays / dev.targetDays) * 100 : 0;
-        const newCapSum = dev.capSum + task.capAvg;
-        const newTaskCount = dev.assignedTasks.length + 1;
-        const newCapAvg = newTaskCount > 0 ? newCapSum / newTaskCount : 0;
-
-        // Time score
-        let timeScore;
-        if (daysPercentage >= 80 && daysPercentage <= 100) {
-          timeScore = 0;
-        } else if (daysPercentage > 100) {
-          timeScore = Infinity;
-        } else if (daysPercentage >= 60) {
-          timeScore = Math.abs(daysPercentage - 90) * 10;
-        } else {
-          timeScore = (80 - daysPercentage) * 20;
-        }
-
-        // Capability score: Allow yellow (<1.5) but heavily penalize red (>2.49)
-        const capScore = Math.abs(newCapAvg - 2) * 100;
-        const capPenalty = newCapAvg > 2.49 ? 10000 : 0;
-
-        const score = timeScore + capScore + capPenalty;
-
-        if (score < bestScore) {
-          bestScore = score;
-          bestDev = dev;
-        }
-      });
-
-      if (bestDev && bestScore < Infinity) {
-        assignments[task.id] = bestDev.name;
-        bestDev.assignedDays += task.days;
-        bestDev.assignedTasks.push(task);
-        bestDev.capSum += task.capAvg;
-        console.log(
-          `Final pass: Assigned task ${task.id} to ${bestDev.name}, score: ${bestScore}`
-        );
-      } else {
-        unassignedTasks.push(task);
-        console.log(`Final pass: Task ${task.id} could not be assigned.`);
+      // Penalty for over-capacity
+      if (state.days > targetDays) {
+        cost += (state.days - targetDays) * 1000;
+        overCapacityCount++;
+      }
+      if (capAvg > 2.49) {
+        cost += (capAvg - 2.49) * 500;
+        overCapacityCount++;
       }
     });
+
+    // Penalty for unassigned tasks
+    const assignedTaskIds = new Set(
+      Object.keys(assignments).map((id) => parseInt(id))
+    );
+    const unassignedTasks = tasks.filter(
+      (task) => !assignedTaskIds.has(task.id)
+    );
+    cost += unassignedTasks.length * 1000;
+
+    return { cost, overCapacityCount };
+  }
+
+  // Initial greedy assignment in task ID order
+  let currentAssignments = {};
+  const sortedTasks = [...tasks].sort((a, b) => a.id - b.id); // Sort by task ID for determinism
+  developerTargets.forEach((dev) => {
+    dev.assignedDays = 0;
+    dev.capSum = 0;
+    dev.assignedTasks = [];
+  });
+
+  sortedTasks.forEach((task) => {
+    let bestDev = null;
+    let bestCost = Infinity;
+    sprintConfig.developers.forEach((dev) => {
+      const devState = developerTargets.find((d) => d.name === dev);
+      const newDays = devState.assignedDays + (task.days || 0);
+      if (newDays <= devState.targetDays) {
+        // Temporarily assign task to compute cost
+        const tempAssignments = { ...currentAssignments, [task.id]: dev };
+        const costObj = computeCost(tempAssignments);
+        if (costObj.cost < bestCost) {
+          bestCost = costObj.cost;
+          bestDev = dev;
+        }
+      }
+    });
+    if (bestDev) {
+      currentAssignments[task.id] = bestDev;
+      const devState = developerTargets.find((d) => d.name === bestDev);
+      devState.assignedDays += task.days || 0;
+      devState.capSum += task.capAvg || 0;
+      devState.assignedTasks.push(task);
+      console.log(
+        `Assigned task ${task.id} to ${bestDev}, cost: ${bestCost.toFixed(2)}`
+      );
+    }
+  });
+
+  // Iterative refinement: swap tasks to improve cost
+  let improved = true;
+  let iteration = 0;
+  let currentCost = computeCost(currentAssignments);
+  let bestAssignments = { ...currentAssignments };
+  let bestCost = currentCost;
+
+  while (improved && iteration < 100) {
+    // Limit iterations to prevent infinite loop
+    improved = false;
+    iteration++;
+    console.log(
+      `Refinement iteration ${iteration}, current cost: ${currentCost.cost.toFixed(
+        2
+      )}`
+    );
+
+    // Try all possible task swaps
+    const assignedTaskIds = Object.keys(currentAssignments).map((id) =>
+      parseInt(id)
+    );
+    for (let i = 0; i < assignedTaskIds.length; i++) {
+      for (let j = i + 1; j < assignedTaskIds.length; j++) {
+        const taskId1 = assignedTaskIds[i];
+        const taskId2 = assignedTaskIds[j];
+        const dev1 = currentAssignments[taskId1];
+        const dev2 = currentAssignments[taskId2];
+
+        // Try swapping
+        const newAssignments = { ...currentAssignments };
+        newAssignments[taskId1] = dev2;
+        newAssignments[taskId2] = dev1;
+
+        // Validate swap
+        const devDays = sprintConfig.developers.reduce(
+          (acc, dev) => ({ ...acc, [dev]: 0 }),
+          {}
+        );
+        let valid = true;
+        Object.entries(newAssignments).forEach(([taskId, dev]) => {
+          const task = tasks.find((t) => t.id === parseInt(taskId));
+          if (task && dev) {
+            devDays[dev] += task.days || 0;
+            if (devDays[dev] > calculateTargetDays(dev)) {
+              valid = false;
+            }
+          }
+        });
+
+        if (valid) {
+          const newCost = computeCost(newAssignments);
+          if (
+            newCost.cost < currentCost.cost ||
+            (newCost.cost === currentCost.cost &&
+              newCost.overCapacityCount < currentCost.overCapacityCount)
+          ) {
+            currentAssignments = newAssignments;
+            currentCost = newCost;
+            improved = true;
+            console.log(
+              `Swapped tasks ${taskId1} and ${taskId2}, new cost: ${newCost.cost.toFixed(
+                2
+              )}`
+            );
+            if (
+              newCost.cost < bestCost.cost ||
+              (newCost.cost === bestCost.cost &&
+                newCost.overCapacityCount < bestCost.overCapacityCount)
+            ) {
+              bestAssignments = { ...currentAssignments };
+              bestCost = newCost;
+            }
+          }
+        }
+      }
+    }
+
+    // Try reassigning each task to another developer
+    for (const taskId of assignedTaskIds) {
+      const currentDev = currentAssignments[taskId];
+      for (const dev of sprintConfig.developers) {
+        if (dev !== currentDev) {
+          const newAssignments = { ...currentAssignments, [taskId]: dev };
+          const devDays = sprintConfig.developers.reduce(
+            (acc, dev) => ({ ...acc, [dev]: 0 }),
+            {}
+          );
+          let valid = true;
+          Object.entries(newAssignments).forEach(([tId, d]) => {
+            const task = tasks.find((t) => t.id === parseInt(tId));
+            if (task && d) {
+              devDays[d] += task.days || 0;
+              if (devDays[d] > calculateTargetDays(d)) {
+                valid = false;
+              }
+            }
+          });
+
+          if (valid) {
+            const newCost = computeCost(newAssignments);
+            if (
+              newCost.cost < currentCost.cost ||
+              (newCost.cost === currentCost.cost &&
+                newCost.overCapacityCount < currentCost.overCapacityCount)
+            ) {
+              currentAssignments = newAssignments;
+              currentCost = newCost;
+              improved = true;
+              console.log(
+                `Reassigned task ${taskId} to ${dev}, new cost: ${newCost.cost.toFixed(
+                  2
+                )}`
+              );
+              if (
+                newCost.cost < bestCost.cost ||
+                (newCost.cost === bestCost.cost &&
+                  newCost.overCapacityCount < bestCost.overCapacityCount)
+              ) {
+                bestAssignments = { ...currentAssignments };
+                bestCost = newCost;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Apply best assignments
+  assignments = bestAssignments;
+  const unassignedCount = tasks.length - Object.keys(assignments).length;
+
+  // Log final assignments
+  console.log('Automatic Assignment Results:');
+  developerTargets.forEach((dev) => {
+    const devTasks = Object.entries(assignments)
+      .filter(([_, assignedDev]) => assignedDev === dev.name)
+      .map(([taskId]) => tasks.find((task) => task.id === parseInt(taskId)))
+      .filter((task) => task);
+    const days = devTasks.reduce((sum, task) => sum + (task.days || 0), 0);
+    const capAvg = devTasks.length
+      ? devTasks.reduce((sum, task) => sum + (task.capAvg || 0), 0) /
+        devTasks.length
+      : 0;
+    const storyPoints = devTasks.reduce(
+      (sum, task) => sum + getTaskStoryPoints(task.rawDays || 0),
+      0
+    );
+    console.log(
+      `Developer ${dev.name}: ${
+        devTasks.length
+      } tasks, Cap Avg: ${capAvg.toFixed(2)}, Days: ${days.toFixed(
+        2
+      )}/${dev.targetDays.toFixed(
+        2
+      )}, Story Points: ${storyPoints}, Tasks=[${devTasks
+        .map(
+          (t) =>
+            `Task ${t.id}: ${t.rawDays.toFixed(2)}d(raw)/${t.days.toFixed(
+              2
+            )}d, ${getTaskStoryPoints(t.rawDays)}sp`
+        )
+        .join(', ')}]`
+    );
+  });
+  if (unassignedCount > 0) {
+    const unassigned = tasks.filter((task) => !assignments[task.id]);
+    console.log(
+      'Unassigned tasks:',
+      unassigned.map((t) => `Task ${t.id}: ${t.description}`)
+    );
   }
 
   saveData();
   alert(
-    `Automatic assignments completed! ${unassignedTasks.length} tasks remain unassigned.`
+    `Automatic assignments completed! ${unassignedCount} tasks remain unassigned.`
   );
   renderAssignmentsTable();
-
-  console.log('Automatic Assignment Results:');
-  developerTargets.forEach((dev) => {
-    const capAvg = dev.assignedTasks.length
-      ? dev.capSum / dev.assignedTasks.length
-      : 0;
-    console.log(
-      `Developer ${dev.name}: ${
-        dev.assignedTasks.length
-      } tasks, Cap Avg: ${capAvg.toFixed(2)}, Days: ${dev.assignedDays.toFixed(
-        2
-      )}/${dev.targetDays.toFixed(2)}, Tasks=[${dev.assignedTasks
-        .map((t) => `Task ${t.id}: ${t.days.toFixed(2)}d`)
-        .join(', ')}]`
-    );
-  });
-  if (unassignedTasks.length > 0) {
-    console.log('Unassigned tasks:', unassignedTasks);
-  }
 }
 
 // Render summary page
@@ -968,59 +1097,81 @@ function renderSummaryPage() {
     const table = document.createElement('table');
     table.className = 'table table-bordered';
     table.innerHTML = `
-      <thead>
-        <tr>
-          <th>Task ID</th>
-          <th>Description</th>
-          <th>Capability</th>
-          <th>Days</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${devTasks
-          .map(
-            (task) => `
-          <tr>
-            <td>${task.id}</td>
-            <td>${task.description}</td>
-            <td class="${
-              task.capColor ? task.capColor.toLowerCase() : ''
-            }" style="font-weight: bold;">${task.capColor || ''}</td>
-            <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>
-          </tr>
-        `
-          )
-          .join('')}
-      </tbody>
-    `;
+            <thead>
+                <tr>
+                    <th>Task ID</th>
+                    <th>Description</th>
+                    <th>Capability</th>
+                    <th>Days</th>
+                    <th>Equivalent Story Points</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${devTasks
+                  .map(
+                    (task) => `
+                    <tr>
+                        <td>${task.id}</td>
+                        <td>${task.description}</td>
+                        <td class="${
+                          task.capColor ? task.capColor.toLowerCase() : ''
+                        }" style="font-weight: bold;">${
+                      task.capColor || ''
+                    }</td>
+                        <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>
+                        <td>${getTaskStoryPoints(task.rawDays)}</td>
+                    </tr>
+                `
+                  )
+                  .join('')}
+            </tbody>
+        `;
     devSection.appendChild(table);
     assignedTasksDiv.appendChild(devSection);
   });
 
   if (unassignedTasks.length === 0) {
     unassignedTasksBody.innerHTML =
-      '<tr><td colspan="4" class="text-center">No unassigned tasks.</td></tr>';
+      '<tr><td colspan="5" class="text-center">No unassigned tasks.</td></tr>';
   } else {
-    unassignedTasks.forEach((task) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${task.id}</td>
-        <td>${task.description}</td>
-        <td class="${
-          task.capColor ? task.capColor.toLowerCase() : ''
-        }" style="font-weight: bold;">${task.capColor || ''}</td>
-        <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>`;
-      unassignedTasksBody.appendChild(row);
-    });
+    unassignedTasksBody.innerHTML = unassignedTasks
+      .map(
+        (task) => `
+            <tr>
+                <td>${task.id}</td>
+                <td>${task.description}</td>
+                <td class="${
+                  task.capColor ? task.capColor.toLowerCase() : ''
+                }" style="font-weight: bold;">${task.capColor || ''}</td>
+                <td>${task.days ? task.days.toFixed(2) : '0.00'}</td>
+                <td>${getTaskStoryPoints(task.rawDays)}</td>
+            </tr>
+        `
+      )
+      .join('');
   }
 
   console.log('Summary page rendered:', {
-    tasksByDeveloper,
+    tasksByDeveloper: Object.fromEntries(
+      Object.entries(tasksByDeveloper).map(([dev, tasks]) => [
+        dev,
+        tasks.map((t) => ({
+          id: t.id,
+          description: t.description,
+          days: t.days ? t.days.toFixed(2) : '0.00',
+          rawDays: t.rawDays ? t.rawDays.toFixed(2) : '0.00',
+          capColor: t.capColor,
+          storyPoints: getTaskStoryPoints(t.rawDays),
+        })),
+      ])
+    ),
     unassignedTasks: unassignedTasks.map((t) => ({
       id: t.id,
       description: t.description,
       days: t.days ? t.days.toFixed(2) : '0.00',
+      rawDays: t.rawDays ? t.rawDays.toFixed(2) : '0.00',
       capColor: t.capColor,
+      storyPoints: getTaskStoryPoints(t.rawDays),
     })),
   });
 }
