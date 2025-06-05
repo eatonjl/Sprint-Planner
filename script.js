@@ -2,7 +2,7 @@
 const defaultConfig = {
   days: 10,
   hoursPerDay: 8,
-  overhead: 5,
+  overhead: {}, // Changed to an object
   holidays: 0,
   buffer: 10,
   developers: ['Jim', 'Jerry', 'Alice', 'Bob'],
@@ -12,6 +12,17 @@ let sprintConfig = {
   ...defaultConfig,
   ...(JSON.parse(localStorage.getItem('sprintConfig')) || {}),
 };
+
+// Ensure overhead is an object, handle backward compatibility
+if (typeof sprintConfig.overhead === 'number') {
+  const oldOverhead = sprintConfig.overhead;
+  sprintConfig.overhead = {};
+  sprintConfig.developers.forEach((dev) => {
+    sprintConfig.overhead[dev] = oldOverhead;
+  });
+  localStorage.setItem('sprintConfig', JSON.stringify(sprintConfig));
+}
+
 let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
 let votes = JSON.parse(localStorage.getItem('votes')) || {};
 let assignments = JSON.parse(localStorage.getItem('assignments')) || {};
@@ -48,7 +59,7 @@ function saveData() {
 function calculateTargetDays(developer) {
   const days = parseInt(sprintConfig.days) || 10;
   const hoursPerDay = parseInt(sprintConfig.hoursPerDay) || 8;
-  const overhead = parseInt(sprintConfig.overhead) || 0;
+  const overhead = parseInt(sprintConfig.overhead[developer]) || 0;
   const holidays = parseInt(sprintConfig.holidays) || 0;
   const buffer = parseInt(sprintConfig.buffer) || 0;
   const personalDaysOff = sprintConfig.personalDaysOff[developer] || 0;
@@ -209,6 +220,37 @@ document.getElementById('setupForm')?.addEventListener('submit', (e) => {
     });
   }
 
+  const overheadInput = document.getElementById('overhead').value.trim();
+  const overhead = {};
+  if (overheadInput) {
+    const developers = document
+      .getElementById('developers')
+      .value.split(',')
+      .map((name) => name.trim())
+      .filter((name) => name);
+    const invalidEntries = [];
+    overheadInput.split(',').forEach((entry) => {
+      const [name, hours] = entry.split(':').map((s) => s.trim());
+      if (name && hours && !isNaN(hours)) {
+        if (developers.includes(name)) {
+          overhead[name] = parseInt(hours);
+        } else {
+          invalidEntries.push(`${name}: Unknown developer`);
+        }
+      } else {
+        invalidEntries.push(entry);
+      }
+    });
+    if (invalidEntries.length > 0) {
+      alert(
+        `Invalid overhead entries: ${invalidEntries.join(
+          ', '
+        )}. Format should be "Developer: Hours".`
+      );
+      return;
+    }
+  }
+
   const newConfig = {
     days: !isNaN(parseInt(document.getElementById('days').value))
       ? parseInt(document.getElementById('days').value)
@@ -216,9 +258,7 @@ document.getElementById('setupForm')?.addEventListener('submit', (e) => {
     hoursPerDay: !isNaN(parseInt(document.getElementById('hoursPerDay').value))
       ? parseInt(document.getElementById('hoursPerDay').value)
       : sprintConfig.hoursPerDay,
-    overhead: !isNaN(parseInt(document.getElementById('overhead').value))
-      ? parseInt(document.getElementById('overhead').value)
-      : sprintConfig.overhead,
+    overhead,
     holidays: !isNaN(parseInt(document.getElementById('holidays').value))
       ? parseInt(document.getElementById('holidays').value)
       : sprintConfig.holidays,
@@ -249,8 +289,11 @@ function loadSetup() {
       sprintConfig.days ?? defaultConfig.days;
     document.getElementById('hoursPerDay').value =
       sprintConfig.hoursPerDay ?? defaultConfig.hoursPerDay;
-    document.getElementById('overhead').value =
-      sprintConfig.overhead ?? defaultConfig.overhead;
+    document.getElementById('overhead').value = Object.entries(
+      sprintConfig.overhead ?? {}
+    )
+      .map(([name, hours]) => `${name}: ${hours}`)
+      .join(', ');
     document.getElementById('holidays').value =
       sprintConfig.holidays ?? defaultConfig.holidays;
     document.getElementById('buffer').value =
@@ -676,7 +719,7 @@ function renderCharts(capData, daysData, targetDaysData) {
             label: 'Capability Average',
             data: capData,
             backgroundColor: capData.map((t) =>
-              t < 1.5 ? '#fff3cd' : t <= 2.49 ? '#d4e4da' : '#f8d7da'
+              t < 1.5 ? '#fff3cd' : t <= 2.49 ? '#d4edda' : '#f8d7da'
             ),
           },
         ],

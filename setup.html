@@ -60,13 +60,14 @@
         </div>
         <div class="mb-3">
           <label for="overhead" class="form-label"
-            >Overhead Hours per Developer</label
+            >Overhead Hours per Developer (e.g., Alice: 5, Bob: 3)</label
           >
-          <input type="number" class="form-control" id="overhead" required />
-          <small class="form-text text-muted"
-            >Non-task hours per developer (e.g., meetings, emails, admin work)
-            during the sprint (will be applied before Buffer Percentage).</small
-          >
+          <input type="text" class="form-control" id="overhead" />
+          <small class="form-text text-muted">
+            Comma-separated list of overhead hours per developer (e.g., Alice:
+            5, Bob: 3). Non-task hours (e.g., meetings, emails, admin work)
+            during the sprint, applied before Buffer Percentage.
+          </small>
         </div>
         <div class="mb-3">
           <label for="holidays" class="form-label"
@@ -77,10 +78,10 @@
         <div class="mb-3">
           <label for="buffer" class="form-label">Buffer Percentage</label>
           <input type="number" class="form-control" id="buffer" required />
-          <small class="form-text text-muted"
-            >Percentage of sprint hours added as contingency for delays or
-            unexpected tasks (will be applied after Overhead Hours).</small
-          >
+          <small class="form-text text-muted">
+            Percentage of sprint hours added as contingency for delays or
+            unexpected tasks (will be applied after Overhead Hours).
+          </small>
         </div>
         <div class="mb-3">
           <label for="developers" class="form-label"
